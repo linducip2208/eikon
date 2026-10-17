@@ -52,6 +52,9 @@ export default function Footer({ settings }) {
                 <Link to="/refund-policy" className="transition-colors hover:text-stone-900">Kebijakan Refund</Link>
               </li>
               <li>
+                <Link to="/privacy-policy" className="transition-colors hover:text-stone-900">Kebijakan Privasi</Link>
+              </li>
+              <li>
                 <Link to="/terms" className="transition-colors hover:text-stone-900">Syarat &amp; Ketentuan</Link>
               </li>
             </ul>

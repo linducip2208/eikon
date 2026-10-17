@@ -25,8 +25,12 @@ export default function Terms({ settings }) {
           Baca juga{" "}
           <Link to="/refund-policy" className="font-medium text-stone-900 underline underline-offset-4">
             Kebijakan Refund
-          </Link>{" "}
-          dan{" "}
+          </Link>
+          ,{" "}
+          <Link to="/privacy-policy" className="font-medium text-stone-900 underline underline-offset-4">
+            Kebijakan Privasi
+          </Link>
+          , dan{" "}
           <Link to="/faq" className="font-medium text-stone-900 underline underline-offset-4">
             FAQ
           </Link>{" "}

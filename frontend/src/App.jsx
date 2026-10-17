@@ -20,6 +20,7 @@ import { parsePreorderPolicy } from "./utils/preorderPolicy";
 import Contact from "./pages/Contact";
 import FAQ from "./pages/FAQ";
 import RefundPolicy from "./pages/RefundPolicy";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
 import OrderStatus from "./pages/OrderStatus";
 import Login from "./pages/Login";
@@ -253,6 +254,7 @@ export default function App() {
             <Route path="/contact" element={<Contact settings={settings} />} />
             <Route path="/faq" element={<FAQ settings={settings} />} />
             <Route path="/refund-policy" element={<RefundPolicy settings={settings} />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy settings={settings} />} />
             <Route path="/terms" element={<Terms settings={settings} />} />
             
             <Route

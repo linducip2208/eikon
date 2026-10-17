@@ -221,3 +221,76 @@ export const TERMS_SECTIONS = [
     ],
   },
 ];
+
+export const PRIVACY_SECTIONS = [
+  {
+    heading: "Pendahuluan",
+    paragraphs: [
+      "Kebijakan Privasi ini menjelaskan bagaimana Eliteikon mengumpulkan, menggunakan, menyimpan, dan melindungi data pribadi Anda saat mengakses dan berbelanja di situs ini.",
+      "Dengan menggunakan layanan kami, Anda dianggap telah membaca dan menyetujui praktik pengelolaan data sebagaimana dijelaskan dalam kebijakan ini.",
+    ],
+  },
+  {
+    heading: "Data yang Kami Kumpulkan",
+    list: [
+      "Data identitas dan kontak: nama, nomor telepon, dan alamat email.",
+      "Data pengiriman: alamat lengkap penerima paket.",
+      "Data transaksi: detail pesanan (produk, jumlah, dan total pembayaran) serta status pembayaran.",
+      "Data teknis: alamat IP, jenis perangkat/browser, dan aktivitas kunjungan untuk keamanan serta peningkatan layanan.",
+    ],
+  },
+  {
+    heading: "Cara Kami Menggunakan Data",
+    list: [
+      "Memproses dan mengirimkan pesanan Anda.",
+      "Memverifikasi pembayaran dan memperbarui status pesanan.",
+      "Menghubungi Anda terkait pesanan, layanan pelanggan, dan informasi penting lainnya.",
+      "Menjaga keamanan situs serta mencegah penyalahgunaan.",
+      "Kami tidak menjual atau menyewakan data pribadi Anda kepada pihak lain.",
+    ],
+  },
+  {
+    heading: "Pembayaran & Pihak Ketiga",
+    list: [
+      "Seluruh pembayaran diproses melalui iPaymu, payment gateway yang terdaftar dan diawasi Bank Indonesia.",
+      "Data pembayaran (Virtual Account, QRIS, atau e-wallet) diproses langsung oleh iPaymu sesuai kebijakan privasi iPaymu. Kami tidak menyimpan data kartu, PIN, atau kredensial perbankan Anda.",
+      "Data dibagikan kepada pihak ketiga hanya sebatas keperluan layanan: jasa kurir (nama, telepon, dan alamat pengiriman) serta penyedia pembayaran.",
+    ],
+  },
+  {
+    heading: "Cookie & Penyimpanan Lokal",
+    list: [
+      "Situs ini menggunakan penyimpanan lokal browser (localStorage) untuk menyimpan isi keranjang belanja Anda.",
+      "Token sesi digunakan untuk autentikasi pada halaman admin.",
+      "Anda dapat menghapus data ini kapan saja melalui pengaturan browser Anda.",
+    ],
+  },
+  {
+    heading: "Keamanan & Penyimpanan Data",
+    paragraphs: [
+      "Data disimpan di server dengan akses terbatas dan transmisi data dilindungi enkripsi (HTTPS).",
+      "Kami menyimpan data pesanan selama diperlukan untuk keperluan administrasi, layanan purna jual, dan kewajiban hukum.",
+    ],
+  },
+  {
+    heading: "Hak Anda",
+    list: [
+      "Meminta akses dan salinan data pribadi yang kami simpan.",
+      "Meminta koreksi data yang tidak akurat.",
+      "Meminta penghapusan data pribadi, sepanjang tidak bertentangan dengan kewajiban hukum kami.",
+      "Pengajuan dapat disampaikan melalui kontak resmi pada bagian bawah halaman ini.",
+    ],
+  },
+  {
+    heading: "Perubahan Kebijakan Privasi",
+    paragraphs: [
+      "Kebijakan ini dapat diperbarui sewaktu-waktu. Versi terbaru yang ditampilkan di halaman ini adalah versi yang berlaku, dengan tanggal pembaruan tercantum di bagian atas halaman.",
+    ],
+  },
+  {
+    heading: "Kontak",
+    paragraphs: [
+      "Untuk pertanyaan mengenai kebijakan privasi ini, hubungi kami melalui WhatsApp atau email resmi yang tercantum di halaman Hubungi Kami dan bagian bawah halaman ini.",
+    ],
+  },
+];
