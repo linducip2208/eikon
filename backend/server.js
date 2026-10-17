@@ -437,10 +437,10 @@ app.delete('/api/banners/:id', verifyToken, async (req, res) => {
 
 // --- SETTINGS ROUTES ---
 
-// GET /api/settings (Public - returns object maps)
+// GET /api/settings (Public - tanpa kredensial payment gateway)
 app.get('/api/settings', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT key_name, value_text FROM settings');
+    const [rows] = await pool.query("SELECT key_name, value_text FROM settings WHERE key_name NOT LIKE 'ipaymu%'");
     const settingsMap = {};
     rows.forEach(r => {
       settingsMap[r.key_name] = r.value_text;
@@ -452,11 +452,43 @@ app.get('/api/settings', async (req, res) => {
   }
 });
 
+// GET /api/settings/admin (Admin - menyertakan kredensial payment gateway)
+app.get('/api/settings/admin', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT key_name, value_text FROM settings');
+    const settingsMap = {};
+    rows.forEach(r => {
+      settingsMap[r.key_name] = r.value_text;
+    });
+    res.json({ success: true, data: settingsMap });
+  } catch (error) {
+    console.error('Get admin settings error:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil pengaturan' });
+  }
+});
+
 // PUT /api/settings (Admin)
 app.put('/api/settings', verifyToken, async (req, res) => {
-  const settingsObj = req.body; // e.g. { whatsapp_number: '62...' }
+  const settingsObj = req.body; // e.g. { whatsapp_number: '62...' } atau { ipaymu_va: '...' }
   if (!settingsObj || Object.keys(settingsObj).length === 0) {
     return res.status(400).json({ success: false, message: 'Data pengaturan tidak boleh kosong' });
+  }
+
+  // Validasi khusus pengaturan payment gateway & URL
+  for (const [key, val] of Object.entries(settingsObj)) {
+    const valueText = typeof val === 'string' ? val.trim() : String(val ?? '');
+    if (key === 'ipaymu_env' && valueText && !['sandbox', 'production'].includes(valueText.toLowerCase())) {
+      return res.status(400).json({ success: false, message: "Mode iPaymu harus 'sandbox' atau 'production'" });
+    }
+    if ((key === 'site_url' || key === 'ipaymu_notify_url') && valueText && !/^https?:\/\//i.test(valueText)) {
+      return res.status(400).json({
+        success: false,
+        message: `URL ${key === 'site_url' ? 'Website Toko' : 'Callback'} harus diawali http:// atau https://`,
+      });
+    }
+    if (key === 'ipaymu_va' && valueText && !/^[0-9]+$/.test(valueText)) {
+      return res.status(400).json({ success: false, message: 'Nomor VA iPaymu hanya boleh berisi angka' });
+    }
   }
 
   const connection = await pool.getConnection();
@@ -464,7 +496,9 @@ app.put('/api/settings', verifyToken, async (req, res) => {
 
   try {
     for (const [key, val] of Object.entries(settingsObj)) {
-      const valueText = typeof val === "string" ? val.trim() : String(val);
+      let valueText = typeof val === "string" ? val.trim() : String(val);
+      if (key === 'ipaymu_env') valueText = valueText.toLowerCase();
+      if (key === 'site_url') valueText = valueText.replace(/\/+$/, '');
       await connection.query(
         'INSERT INTO settings (key_name, value_text) VALUES (?, ?) ON DUPLICATE KEY UPDATE value_text = ?',
         [key, valueText, valueText]
@@ -870,23 +904,43 @@ app.delete('/api/products/:id', verifyToken, async (req, res) => {
 });
 
 // --- IPAYMU PAYMENT GATEWAY (konfigurasi & helper) ---
-// Semua kredensial dibaca dari .env (backend/.env), TIDAK di-hardcode.
+// Kredensial TIDAK di-hardcode: dibaca dari tabel `settings` dan diatur
+// dari dashboard admin (tab Setting > bagian Payment Gateway).
 
-function getIpaymuConfig() {
-  const isProduction = (process.env.IPAYMU_ENV || 'sandbox').toLowerCase() === 'production';
+async function getIpaymuConfig() {
+  const [rows] = await pool.query(
+    "SELECT key_name, value_text FROM settings WHERE key_name IN ('ipaymu_env', 'ipaymu_va', 'ipaymu_api_key', 'ipaymu_notify_url', 'site_url')"
+  );
+  const map = {};
+  rows.forEach((r) => {
+    map[r.key_name] = String(r.value_text || '').trim();
+  });
+
+  const isProduction = (map.ipaymu_env || 'sandbox').toLowerCase() === 'production';
   const defaultBaseUrl = isProduction ? 'https://my.ipaymu.com/api/v2' : 'https://sandbox.ipaymu.com/api/v2';
   return {
+    // IPAYMU_BASE_URL hanya untuk debug/testing lokal (opsional) — bukan kredensial
     baseUrl: (process.env.IPAYMU_BASE_URL || defaultBaseUrl).replace(/\/+$/, ''),
-    va: (process.env.IPAYMU_VA || '').trim(),
-    apiKey: (process.env.IPAYMU_API_KEY || '').trim(),
-    appUrl: (process.env.APP_URL || 'http://localhost:5173').replace(/\/+$/, ''),
-    notifyUrl: (process.env.IPAYMU_NOTIFY_URL || '').trim(),
+    va: map.ipaymu_va || '',
+    apiKey: map.ipaymu_api_key || '',
+    siteUrl: (map.site_url || '').replace(/\/+$/, ''),
+    notifyUrl: map.ipaymu_notify_url || '',
+    isProduction,
   };
 }
 
-function isIpaymuConfigured() {
-  const { va, apiKey } = getIpaymuConfig();
+async function isIpaymuConfigured() {
+  const { va, apiKey } = await getIpaymuConfig();
   return Boolean(va && apiKey);
+}
+
+// Origin request saat ini — fallback jika `site_url` belum diatur di Setting admin
+function getRequestOrigin(req) {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  const proto = forwardedProto || req.protocol || 'http';
+  const host = forwardedHost || String(req.get('host') || '').trim();
+  return host ? `${proto}://${host}` : '';
 }
 
 // Timestamp request iPaymu: YYYYMMDDHHmmss (waktu lokal server)
@@ -958,8 +1012,16 @@ function isValidIpaymuCallbackSignature(rawData, receivedSignature, va) {
 }
 
 // Buat sesi pembayaran Redirect di iPaymu -> { sessionId, paymentUrl }
-async function createIpaymuPaymentSession({ referenceId, items, buyer }) {
-  const { baseUrl, va, apiKey, appUrl, notifyUrl } = getIpaymuConfig();
+async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackOrigin }) {
+  const { baseUrl, va, apiKey, siteUrl, notifyUrl } = await getIpaymuConfig();
+
+  // URL toko untuk returnUrl/cancelUrl: dari Setting admin, fallback ke origin request
+  const appUrl = siteUrl || fallbackOrigin || '';
+  if (!appUrl) {
+    const paymentError = new Error('URL Website Toko belum diatur. Isi di Admin > Setting > Payment Gateway.');
+    paymentError.isPaymentError = true;
+    throw paymentError;
+  }
 
   const body = {
     product: items.map((item) => item.product_name),
@@ -1060,10 +1122,10 @@ const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed',
 
 // POST /api/orders (Public) - buat pesanan + sesi pembayaran iPaymu
 app.post('/api/orders', async (req, res) => {
-  if (!isIpaymuConfigured()) {
+  if (!(await isIpaymuConfigured())) {
     return res.status(503).json({
       success: false,
-      message: 'Payment gateway belum dikonfigurasi. Lengkapi IPAYMU_VA & IPAYMU_API_KEY di backend/.env',
+      message: 'Payment gateway belum dikonfigurasi. Lengkapi di Admin > Setting > Payment Gateway',
     });
   }
 
@@ -1182,6 +1244,7 @@ app.post('/api/orders', async (req, res) => {
       referenceId,
       items: orderItems,
       buyer: { name: cleanName, phone: cleanPhone, email: cleanEmail },
+      fallbackOrigin: getRequestOrigin(req),
     });
 
     await connection.query('UPDATE orders SET payment_session_id = ?, payment_url = ? WHERE id = ?', [
@@ -1216,13 +1279,13 @@ app.post('/api/orders', async (req, res) => {
 
 // POST /api/ipaymu/callback (Public) - webhook notifikasi pembayaran dari iPaymu
 app.post('/api/ipaymu/callback', async (req, res) => {
-  const { va } = getIpaymuConfig();
+  const { va } = await getIpaymuConfig();
   const rawData = req.body || {};
   const receivedSignature = req.headers['x-signature'];
 
   try {
     if (!va) {
-      console.error('iPaymu callback: IPAYMU_VA belum dikonfigurasi, signature tidak dapat divalidasi');
+      console.error('iPaymu callback: Payment gateway belum dikonfigurasi di Setting admin, signature tidak dapat divalidasi');
       return res.status(400).send('Invalid Signature');
     }
     if (!isValidIpaymuCallbackSignature(rawData, receivedSignature, va)) {

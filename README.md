@@ -77,22 +77,20 @@ Catatan:
 
 Checkout di halaman toko membuat pesanan di database lalu mengarahkan pembeli ke halaman pembayaran iPaymu (VA bank, QRIS, e-wallet). Status pembayaran diperbarui otomatis via callback webhook (signature divalidasi HMAC-SHA256).
 
-### Konfigurasi
+### Konfigurasi (via menu Setting admin — tanpa edit .env)
 
-Isi kredensial di `backend/.env` (ambil dari dashboard iPaymu → Integration):
+Semua kredensial diatur dari **dashboard admin → tab Setting → bagian Payment Gateway** (tersimpan di database, langsung aktif tanpa restart server):
 
-```
-IPAYMU_ENV=sandbox            # sandbox | production
-IPAYMU_VA=                    # Nomor VA merchant
-IPAYMU_API_KEY=               # API Key
-APP_URL=http://eikon.test     # untuk returnUrl & cancelUrl
-IPAYMU_NOTIFY_URL=            # URL publik callback (opsional jika APP_URL sudah publik)
-```
+- **Mode**: `Sandbox` (testing) atau `Production` (live)
+- **Nomor VA** & **API Key**: dari dashboard iPaymu → menu Integrasi
+  - Sandbox: https://sandbox.ipaymu.com/integration
+  - Production: https://my.ipaymu.com/integration
+- **URL Website Toko**: domain toko untuk redirect setelah pembayaran (mis. `http://eikon.test` atau `https://tokosaya.com`)
+- **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/ipaymu/callback` — daftarkan URL ini di dashboard iPaymu agar status pembayaran ter-update otomatis
+  - **Catatan**: callback harus bisa diakses dari internet oleh server iPaymu. Untuk testing lokal gunakan tunnel (mis. `ngrok http 5000`) dan isi URL Callback dengan `https://xxxx.ngrok-free.app/api/ipaymu/callback`
+- Untuk production: daftarkan domain & IP statis server di pengaturan iPaymu
 
-- Dashboard Sandbox: https://sandbox.ipaymu.com/integration
-- Dashboard Production: https://my.ipaymu.com/integration
-- **Callback webhook** harus bisa diakses dari internet oleh server iPaymu. Untuk testing lokal, gunakan tunnel (mis.: `ngrok http 5000` lalu isi `IPAYMU_NOTIFY_URL=https://xxxx.ngrok-free.app/api/ipaymu/callback`).
-- Untuk production: daftarkan domain & IP statis server di pengaturan iPaymu, lalu set `IPAYMU_ENV=production`.
+Catatan keamanan: endpoint publik `/api/settings` **tidak pernah** mengembalikan kredensial payment gateway — hanya endpoint admin (`/api/settings/admin`, butuh token) yang bisa membacanya.
 
 ### Alur status pesanan
 
