@@ -3,12 +3,16 @@ import { request } from "../utils/request";
 import { API_ENDPOINTS } from "../utils/endpoints";
 import { Mail, Phone, MapPin, Send, Loader2, Globe } from "lucide-react";
 import toast from "react-hot-toast";
+import { resolveBusinessInfo } from "../utils/businessInfo";
+import { formatPhoneDisplay, toWhatsAppLink } from "../utils/formatPhone";
 
-export default function Contact() {
+export default function Contact({ settings }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const business = resolveBusinessInfo(settings);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,21 +66,33 @@ export default function Contact() {
             <div className="flex items-start space-x-3">
               <MapPin className="h-5 w-5 text-stone-450 mt-0.5 flex-shrink-0" />
               <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">Address</span>
-                <span>Bekasi City, West Java, Indonesia</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">Business Address</span>
+                <span>{business.address}</span>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <Phone className="h-5 w-5 text-stone-450 mt-0.5 flex-shrink-0" />
               <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">WhatsApp</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">WhatsApp Office</span>
                 <a
-                  href="https://wa.me/6287865407492"
+                  href={toWhatsAppLink(business.whatsappNumber)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-stone-900 transition-colors"
                 >
-                  +62 878 6540 7492
+                  {formatPhoneDisplay(business.whatsappNumber)}
+                </a>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <Phone className="h-5 w-5 text-stone-450 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">Telepon Admin</span>
+                <a
+                  href={`tel:+${business.adminPhone.replace(/\D/g, "").replace(/^0/, "62")}`}
+                  className="hover:text-stone-900 transition-colors"
+                >
+                  {formatPhoneDisplay(business.adminPhone)}
                 </a>
               </div>
             </div>
@@ -85,10 +101,10 @@ export default function Contact() {
               <div>
                 <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">Email</span>
                 <a
-                  href="mailto:ekonindonesiajaya@gmail.com"
+                  href={`mailto:${business.email}`}
                   className="hover:text-stone-900 transition-colors"
                 >
-                  ekonindonesiajaya@gmail.com
+                  {business.email}
                 </a>
               </div>
             </div>
@@ -97,7 +113,7 @@ export default function Contact() {
               <div>
                 <span className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-0.5">Website</span>
                 <a
-                  href="https://www.eliteikon.com"
+                  href={business.website}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-stone-900 transition-colors"

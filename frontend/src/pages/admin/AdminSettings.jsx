@@ -9,6 +9,7 @@ import {
   EyeOff,
   ShieldCheck,
   ShieldAlert,
+  Building2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -27,6 +28,12 @@ export default function AdminSettings({ onActionSuccess }) {
   const [preorderPolicyDisclaimer, setPreorderPolicyDisclaimer] = useState(
     DEFAULT_PREORDER_POLICY.disclaimer
   );
+
+  // --- Informasi bisnis (kontak & alamat) ---
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [businessAdminPhone, setBusinessAdminPhone] = useState("");
+  const [businessSaving, setBusinessSaving] = useState(false);
 
   // --- Payment gateway (iPaymu) ---
   const [paymentEnv, setPaymentEnv] = useState("sandbox");
@@ -47,6 +54,9 @@ export default function AdminSettings({ onActionSuccess }) {
         const policy = parsePreorderPolicy(res.data);
         setPreorderPolicyItems(policy.items.join("\n"));
         setPreorderPolicyDisclaimer(policy.disclaimer);
+        setBusinessAddress(res.data.business_address || "");
+        setBusinessEmail(res.data.business_email || "");
+        setBusinessAdminPhone(res.data.business_phone_admin || "");
         setPaymentEnv((res.data.ipaymu_env || "sandbox").toLowerCase());
         setPaymentVa(res.data.ipaymu_va || "");
         setPaymentApiKey(res.data.ipaymu_api_key || "");
@@ -104,6 +114,43 @@ export default function AdminSettings({ onActionSuccess }) {
       toast.error("Gagal menyimpan pengaturan.", { id: toastId });
     } finally {
       setModalLoading(false);
+    }
+  };
+
+  const handleBusinessSubmit = async (e) => {
+    e.preventDefault();
+
+    const cleanAddress = businessAddress.trim();
+    const cleanEmail = businessEmail.trim();
+    const cleanAdminPhone = businessAdminPhone.trim();
+
+    if (!cleanAddress) {
+      toast.error("Alamat bisnis wajib diisi (ditampilkan di footer & halaman kontak).");
+      return;
+    }
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      toast.error("Masukkan alamat email bisnis yang valid.");
+      return;
+    }
+
+    setBusinessSaving(true);
+    const toastId = toast.loading("Menyimpan informasi bisnis...");
+    try {
+      const res = await request.put(API_ENDPOINTS.SETTINGS.UPDATE, {
+        business_address: cleanAddress,
+        business_email: cleanEmail,
+        business_phone_admin: cleanAdminPhone,
+      });
+      if (res.success) {
+        toast.success("Informasi bisnis berhasil disimpan.", { id: toastId });
+        fetchSettings();
+        if (onActionSuccess) onActionSuccess();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal menyimpan informasi bisnis.", { id: toastId });
+    } finally {
+      setBusinessSaving(false);
     }
   };
 
@@ -239,6 +286,89 @@ export default function AdminSettings({ onActionSuccess }) {
                 <Save className="h-4 w-4" />
               )}
               <span>{modalLoading ? "Menyimpan..." : "Simpan Pengaturan"}</span>
+            </button>
+          </form>
+        )}
+      </div>
+
+      {/* ================= Informasi Bisnis ================= */}
+      <div className="bg-white border border-stone-150 p-8 shadow-xs space-y-6">
+        <div className="space-y-1">
+          <h3 className="font-serif text-lg font-light text-stone-900 uppercase tracking-widest flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-stone-400" />
+            Informasi Bisnis
+          </h3>
+          <p className="text-xs text-stone-400">
+            Alamat dan kontak bisnis yang ditampilkan di footer, halaman Kontak, serta halaman kebijakan — bagian yang diverifikasi saat pengajuan payment gateway.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-stone-500" />
+          </div>
+        ) : (
+          <form onSubmit={handleBusinessSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                Alamat Bisnis (ditampilkan publik)
+              </label>
+              <textarea
+                required
+                rows="3"
+                className="w-full bg-stone-50/50 border border-stone-250 px-3 py-3 text-sm text-stone-955 focus:border-stone-900 focus:outline-none transition-all placeholder-stone-400 resize-y"
+                placeholder={"cth. Jl. Contoh Raya No. 123, Kel. Sukamaju, Kec. Cikarang Utara,\nKab. Bekasi, Jawa Barat 17530"}
+                value={businessAddress}
+                onChange={(e) => setBusinessAddress(e.target.value)}
+              />
+              <p className="text-[10px] text-stone-450 leading-relaxed">
+                Gunakan alamat lengkap bisnis/office (jalan, nomor, kelurahan, kecamatan, kota, kode pos). Alamat ini harus sama dengan data bisnis Anda.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                Email Bisnis
+              </label>
+              <input
+                type="email"
+                required
+                className="w-full bg-stone-50/50 border border-stone-250 px-3 py-3 text-sm text-stone-955 focus:border-stone-900 focus:outline-none transition-all placeholder-stone-400"
+                placeholder="cth. tokosaya@gmail.com"
+                value={businessEmail}
+                onChange={(e) => setBusinessEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500">
+                No. Telepon Admin (opsional)
+              </label>
+              <input
+                type="tel"
+                className="w-full bg-stone-50/50 border border-stone-250 px-3 py-3 text-sm text-stone-955 focus:border-stone-900 focus:outline-none transition-all placeholder-stone-400"
+                placeholder="cth. 087753427090"
+                value={businessAdminPhone}
+                onChange={(e) => setBusinessAdminPhone(e.target.value)}
+              />
+              <p className="text-[10px] text-stone-450 leading-relaxed">
+                Nomor WhatsApp Office diatur pada bagian Pengaturan Global Toko di atas.
+              </p>
+            </div>
+
+            <div className="h-[1px] w-full bg-stone-100" />
+
+            <button
+              type="submit"
+              disabled={businessSaving}
+              className="w-full flex items-center justify-center space-x-2 bg-stone-900 px-6 py-4 text-xs font-semibold uppercase tracking-widest text-white hover:bg-stone-850 active:bg-black disabled:opacity-50 transition-all duration-200"
+            >
+              {businessSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              <span>{businessSaving ? "Menyimpan..." : "Simpan Informasi Bisnis"}</span>
             </button>
           </form>
         )}

@@ -489,6 +489,9 @@ app.put('/api/settings', verifyToken, async (req, res) => {
     if (key === 'ipaymu_va' && valueText && !/^[0-9]+$/.test(valueText)) {
       return res.status(400).json({ success: false, message: 'Nomor VA iPaymu hanya boleh berisi angka' });
     }
+    if (key === 'business_email' && valueText && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valueText)) {
+      return res.status(400).json({ success: false, message: 'Format email bisnis tidak valid' });
+    }
   }
 
   const connection = await pool.getConnection();

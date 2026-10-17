@@ -20,9 +20,10 @@ export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogou
             </Link>
           </div>
 
-          {/* Center - Shop & Contact Us menu (Desktop only) */}
+          {/* Center - Shop, FAQ & Contact Us menu (Desktop only) */}
           <div className="hidden md:flex items-center space-x-8 text-xs font-semibold tracking-[0.2em] text-stone-600 uppercase">
             <Link to="/shop" className="hover:text-stone-900 transition-colors duration-200">Belanja</Link>
+            <Link to="/faq" className="hover:text-stone-900 transition-colors duration-200">FAQ</Link>
             <Link to="/contact" className="hover:text-stone-900 transition-colors duration-200">Hubungi Kami</Link>
           </div>
 
@@ -88,6 +89,13 @@ export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogou
               onClick={closeMobileMenu}
             >
               Belanja
+            </Link>
+            <Link
+              to="/faq"
+              className="hover:text-stone-900 py-3 border-b border-stone-50 transition-colors duration-200"
+              onClick={closeMobileMenu}
+            >
+              FAQ
             </Link>
             <Link
               to="/contact"

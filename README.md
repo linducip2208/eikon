@@ -99,6 +99,15 @@ Catatan keamanan: endpoint publik `/api/settings` **tidak pernah** mengembalikan
 - Stok varian otomatis berkurang sekali saat status menjadi `paid` (idempotent).
 - Halaman pembeli: `/order/{reference_id}` (menampilkan ringkasan, status realtime, tombol lanjut bayar).
 
+### Halaman publik & informasi bisnis (persyaratan verifikasi payment gateway)
+
+- `/faq` — Pertanyaan umum (pembayaran, pengiriman, refund, pre-order)
+- `/refund-policy` — Kebijakan Refund (pembatalan, penukaran, pengembalian dana)
+- `/terms` — Syarat & Ketentuan
+- `/contact` — Kontak & alamat bisnis
+
+Konten halaman kebijakan berada di `frontend/src/data/legal.js`. Alamat, email, dan nomor telepon bisnis diatur dari **admin → tab Setting → Informasi Bisnis** (tersimpan di `settings` sebagai `business_address`, `business_email`, `business_phone_admin`); nomor WhatsApp/Office memakai setting `whatsapp_number`. Semua nilai ini tampil otomatis di footer, halaman Kontak, dan halaman kebijakan.
+
 ### Tabel database tambahan
 
 Jalankan `backend/sql/migration_orders.sql` pada database yang sudah ada (membuat `orders` + `order_items`).

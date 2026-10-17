@@ -18,6 +18,9 @@ import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
 import { parsePreorderPolicy } from "./utils/preorderPolicy";
 import Contact from "./pages/Contact";
+import FAQ from "./pages/FAQ";
+import RefundPolicy from "./pages/RefundPolicy";
+import Terms from "./pages/Terms";
 import OrderStatus from "./pages/OrderStatus";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -114,11 +117,11 @@ export default function App() {
     verifyAuth();
   }, []);
 
-  // Fetch settings parameters dynamically (whatsapp number)
+  // Fetch settings parameters dynamically (whatsapp number, info bisnis, dll)
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await request.get("/settings");
+        const res = await request.get(API_ENDPOINTS.SETTINGS.PUBLIC);
         if (res.success && res.data) {
           setSettings(res.data);
         }
@@ -247,7 +250,10 @@ export default function App() {
             <Route path="/shop" element={<Shop />} />
             <Route path="/product/:id" element={<ProductDetail onAddToCart={handleAddToCart} whatsappNumber={settings.whatsapp_number} preorderPolicy={parsePreorderPolicy(settings)} />} />
             <Route path="/order/:referenceId" element={<OrderStatus />} />
-            <Route path="/contact" element={<Contact />} />
+            <Route path="/contact" element={<Contact settings={settings} />} />
+            <Route path="/faq" element={<FAQ settings={settings} />} />
+            <Route path="/refund-policy" element={<RefundPolicy settings={settings} />} />
+            <Route path="/terms" element={<Terms settings={settings} />} />
             
             <Route
               path="/login"
@@ -267,7 +273,7 @@ export default function App() {
           </Routes>
         </main>
 
-        <Footer />
+        <Footer settings={settings} />
 
         {/* Global Floating WhatsApp button */}
         <FloatingWhatsApp whatsappNumber={settings.whatsapp_number} />
