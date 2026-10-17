@@ -108,9 +108,20 @@ Catatan keamanan: endpoint publik `/api/settings` **tidak pernah** mengembalikan
 
 Konten halaman kebijakan berada di `frontend/src/data/legal.js`. Alamat, email, dan nomor telepon bisnis diatur dari **admin → tab Setting → Informasi Bisnis** (tersimpan di `settings` sebagai `business_address`, `business_email`, `business_phone_admin`); nomor WhatsApp/Office memakai setting `whatsapp_number`. Semua nilai ini tampil otomatis di footer, halaman Kontak, dan halaman kebijakan.
 
-### Tabel database tambahan
+### File database (`backend/sql`)
 
-Jalankan `backend/sql/migration_orders.sql` pada database yang sudah ada (membuat `orders` + `order_items`).
+- `database.sql` — skema lengkap + seed untuk instalasi baru (admin, kategori, produk contoh, banner, settings termasuk info bisnis terbaru).
+- `migration_orders.sql` — tabel `orders` + `order_items` untuk database yang sudah berjalan.
+- `migration_settings.sql` — pengaturan info bisnis (`business_*`) untuk database yang sudah berjalan; aman diulang karena nilai yang sudah ada tidak ditimpa.
+
+Jalankan migrasi ke database yang sudah ada (mis. production):
+
+```bash
+mysql -u root --default-character-set=utf8mb4 elkon_db < backend/sql/migration_orders.sql
+mysql -u root --default-character-set=utf8mb4 elkon_db < backend/sql/migration_settings.sql
+```
+
+Catatan: kredensial payment gateway (`ipaymu_*`) dan `site_url` **tidak pernah di-seed** karena bersifat rahasia dan berbeda per environment — diatur dari dashboard admin: Setting > Payment Gateway.
 
 ### Catatan gambar produk
 

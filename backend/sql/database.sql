@@ -145,3 +145,14 @@ INSERT INTO settings (key_name, value_text) VALUES
 ('whatsapp_number', '6287865407492'),
 ('preorder_policy', '{"items":["Estimasi produksi: 7–14 hari kerja, kalau orderan terlalu banyak maksimal 40 hari kerja.","Pembayaran dilakukan sebelum pesanan diproses.","Pesanan yang sudah masuk produksi tidak dapat dibatalkan.","Perubahan ukuran/warna maksimal 1x24 jam setelah pembayaran.","Produk dikirim setelah proses produksi dan QC selesai.","Penukaran hanya berlaku untuk kesalahan pengiriman atau cacat produksi dengan video unboxing."],"disclaimer":"By placing an order, you agree to our Pre-Order Policy. ✨"}')
 ON DUPLICATE KEY UPDATE value_text=value_text;
+
+-- Seed Info Bisnis & Kontak (data terbaru — dipakai footer, halaman Kontak, & kebijakan)
+INSERT INTO settings (key_name, value_text) VALUES
+('business_email', 'ekonindonesiajaya@gmail.com'),
+('business_phone_admin', '087753427090'),
+('business_address', 'Bekasi City, West Java, Indonesia')
+ON DUPLICATE KEY UPDATE value_text=value_text;
+
+-- Catatan: pengaturan payment gateway (ipaymu_env, ipaymu_va, ipaymu_api_key,
+-- ipaymu_notify_url) dan site_url TIDAK di-seed karena bersifat rahasia dan
+-- berbeda per environment. Isi dari dashboard admin: Setting > Payment Gateway.
