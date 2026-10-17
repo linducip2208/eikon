@@ -35,17 +35,15 @@ npm run dev   # nodemon, http://localhost:5000
 
 ### 3. Frontend
 
-Konfigurasi di `frontend/.env`:
-
-```
-VITE_API_URL=http://localhost:5000/api
-```
+Tidak perlu konfigurasi tambahan — mode development otomatis memakai `frontend/.env.development` (`VITE_API_URL=http://localhost:5000/api`).
 
 ```bash
 cd frontend
 npm install
 npm run dev   # http://localhost:5173
 ```
+
+Catatan: jangan menyetel `VITE_API_URL` di `frontend/.env` / `frontend/.env.production` — nilainya ikut terbawa ke hasil `npm run build`.
 
 ### Akses via http://eikon.test (Apache Laragon)
 
@@ -62,8 +60,9 @@ npm run build   # hasil ke folder dist
 ```
 
 Catatan:
-- Build memakai `frontend/.env.production` (`VITE_API_URL=/api`, relative → diproxy Apache).
-- Untuk development dengan hot-reload, tetap pakai `npm run dev` di `http://localhost:5173`.
+- Alamat API ditentukan **saat runtime** (`frontend/src/utils/api.js`): hostname lokal (`eikon.test`/`localhost`/`127.0.0.1`) → `/api` (diproxy Apache), hostname lain → API production. Satu hasil build berlaku untuk lokal maupun production.
+- Hasil build (`frontend/dist`) **ikut di-commit ke git** — selalu jalankan `npm run build` sebelum commit (deploy production = `git pull`, lihat bagian Deploy).
+- Untuk development dengan hot-reload, tetap pakai `npm run dev` di `http://localhost:5173` (memakai `frontend/.env.development`).
 - Backend & MySQL harus jalan supaya `eikon.test` berfungsi penuh.
 
 ### Admin Panel
@@ -72,6 +71,35 @@ Catatan:
 - Email: `admin@elkon.com`
 - Password: `admin123`
 - Tab **Pesanan** untuk mengelola order (search, filter status, update status pengiriman).
+
+## Deploy ke Production (pull-only)
+
+Production: **https://eliteikon.com** (frontend) + **https://api.kingcreativestudio.my.id/elkon/api** (backend Express).
+
+Alur deploy: build di lokal → ikutkan ke git → di server cukup `git pull` (tidak perlu Node/npm di server untuk frontend).
+
+```bash
+# 1. Di lokal: build lalu commit + push (folder frontend/dist ikut ter-commit)
+cd frontend && npm run build
+cd .. && git add -A && git commit -m "Update" && git push
+
+# 2. Di server production (sekali saja jika belum ada repo):
+#    git clone https://github.com/linducip2208/eikon.git
+git pull
+
+# 3. Migrasi database yang belum dijalankan (lihat bagian File database)
+mysql -u <user> -p <nama_db> < backend/sql/migration_orders.sql
+mysql -u <user> -p <nama_db> < backend/sql/migration_settings.sql
+
+# 4. Restart aplikasi Node backend (mis. cPanel → Setup Node.js App → Restart)
+```
+
+Setelah deploy, isi dari dashboard admin production → tab **Setting**:
+
+- **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
+- **Payment Gateway**: mode (sandbox/production), VA & API Key iPaymu, URL Website Toko = `https://eliteikon.com`.
+
+Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy isi folder tersebut). `frontend/dist` sengaja ikut git supaya server tidak butuh build sendiri.
 
 ## Pembayaran (iPaymu)
 
@@ -85,7 +113,7 @@ Semua kredensial diatur dari **dashboard admin → tab Setting → bagian Paymen
 - **Nomor VA** & **API Key**: dari dashboard iPaymu → menu Integrasi
   - Sandbox: https://sandbox.ipaymu.com/integration
   - Production: https://my.ipaymu.com/integration
-- **URL Website Toko**: domain toko untuk redirect setelah pembayaran (mis. `http://eikon.test` atau `https://tokosaya.com`)
+- **URL Website Toko**: domain toko untuk redirect setelah pembayaran (lokal: `http://eikon.test` · production: `https://eliteikon.com`)
 - **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/ipaymu/callback` — daftarkan URL ini di dashboard iPaymu agar status pembayaran ter-update otomatis
   - **Catatan**: callback harus bisa diakses dari internet oleh server iPaymu. Untuk testing lokal gunakan tunnel (mis. `ngrok http 5000`) dan isi URL Callback dengan `https://xxxx.ngrok-free.app/api/ipaymu/callback`
 - Untuk production: daftarkan domain & IP statis server di pengaturan iPaymu

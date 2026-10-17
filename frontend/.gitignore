@@ -8,9 +8,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
 dist-ssr
 *.local
+
+# Catatan: `dist` sengaja TIDAK di-ignore di sini — hasil build di-commit ke git
+# untuk deployment pull-only. Jalankan `npm run build` sebelum commit.
 
 # Editor directories and files
 .vscode/*

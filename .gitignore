@@ -1,7 +1,9 @@
 node_modules
-dist
 build
 .env
+
+# Catatan: frontend/dist SENGAJA tidak di-ignore — hasil build ikut di-commit
+# untuk deployment "pull-only" ke production (lihat README bagian Deploy).
 .DS_Store
 *.log
 .cache

@@ -363,6 +363,7 @@ Aturan ini wajib dipenuhi oleh setiap project baru maupun project yang di-mainta
 1. **Wajib ada `.gitignore` di root project**:
    - Minimal ignore: `node_modules`, build outputs (`dist`, `build`), cache, logs, `.env`, IDE files.
    - Tidak boleh commit hasil build, dependency cache, atau secret lokal.
+   - **Pengecualian project ini**: `frontend/dist` sengaja ikut di-commit untuk deployment pull-only ke production (lihat README bagian "Deploy ke Production").
 
 2. **Frontend wajib punya util endpoint API terpusat**:
    - Wajib ada file: `frontend/src/utils/endpoints.js`
