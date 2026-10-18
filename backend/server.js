@@ -435,6 +435,11 @@ app.delete('/api/banners/:id', verifyToken, async (req, res) => {
 });
 
 
+// GET /api/version (Public) - penanda build yang live di server (untuk verifikasi deploy)
+app.get('/api/version', (req, res) => {
+  res.json({ success: true, build: '2026-10-18-fix3', node: process.version });
+});
+
 // --- SETTINGS ROUTES ---
 
 // GET /api/settings (Public - tanpa kredensial payment gateway)
