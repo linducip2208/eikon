@@ -1021,7 +1021,7 @@ function isValidIpaymuCallbackSignature(rawData, receivedSignature, va) {
 
 // Buat sesi pembayaran Redirect di iPaymu -> { sessionId, paymentUrl }
 async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackOrigin }) {
-  const { baseUrl, va, apiKey, siteUrl, notifyUrl } = await getIpaymuConfig();
+  const { baseUrl, va, apiKey, siteUrl, notifyUrl, isProduction } = await getIpaymuConfig();
 
   // URL toko untuk returnUrl/cancelUrl: dari Setting admin, fallback ke origin request
   const appUrl = siteUrl || fallbackOrigin || '';
@@ -1075,6 +1075,16 @@ async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackO
   }
 
   const result = await response.json().catch(() => null);
+  // Trap log: diagnosis 401/unauthorized tanpa mencatat secret (tanpa apiKey)
+  console.error('iPaymu payment response:', JSON.stringify({
+    httpStatus: response.status,
+    ipaymuStatus: result ? result.Status : null,
+    ipaymuMessage: result ? result.Message : null,
+    baseUrl,
+    env: isProduction ? 'production' : 'sandbox',
+    vaLength: (va || '').length,
+    referenceId,
+  }));
   if (!result || Number(result.Status) !== 200 || !result.Data || !result.Data.Url) {
     const paymentError = new Error(
       result && result.Message ? result.Message : 'Gagal membuat sesi pembayaran di iPaymu'
