@@ -8,7 +8,7 @@ import axios from "axios";
 // 2. Hostname lokal (eikon.test / localhost / 127.0.0.1) -> "/api" (diproxy Apache lokal)
 // 3. Hostname lain (production) -> API production
 const LOCAL_HOSTNAMES = ["eikon.test", "localhost", "127.0.0.1"];
-const PRODUCTION_API_URL = "https://api.kingcreativestudio.my.id/elkon/api";
+const PRODUCTION_API_URL = "https://www.eliteikon.com/api";
 
 const resolveApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;

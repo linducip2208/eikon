@@ -74,7 +74,7 @@ Catatan:
 
 ## Deploy ke Production (pull-only)
 
-Production: **https://eliteikon.com** (frontend) + **https://api.kingcreativestudio.my.id/elkon/api** (backend Express).
+Production: **https://www.eliteikon.com** (frontend) + **https://www.eliteikon.com/api** (backend Express, satu domain via reverse proxy `/api` → Node :5000).
 
 Alur deploy: build di lokal → ikutkan ke git → di server cukup `git pull` (tidak perlu Node/npm di server untuk frontend).
 
