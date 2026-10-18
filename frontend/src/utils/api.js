@@ -4,11 +4,9 @@ import axios from "axios";
 // semua environment (lokal maupun production) — lihat README bagian Deploy.
 //
 // Prioritas:
-// 1. VITE_API_URL — override manual (dipakai `npm run dev` via frontend/.env)
-// 2. Hostname lokal (eikon.test / localhost / 127.0.0.1) -> "/api" (diproxy Apache lokal)
-// 3. Hostname lain (production) -> API production
-// Hostname yang memakai API satu domain (relatif "/api"): lokal + domain test.
-// Production utama (www.eliteikon.com) memakai URL absolut di bawah.
+// 1. VITE_API_URL — override manual (dipakai `npm run dev` via frontend/.env*)
+// 2. Hostname satu domain (lokal + domain test) -> "/api" relatif, ikut domain aktif
+// 3. Hostname lain (mis. www.eliteikon.com) -> PRODUCTION_API_URL di bawah
 const LOCAL_HOSTNAMES = ["eikon.test", "localhost", "127.0.0.1", "elkon.whitelabel.co.id"];
 const PRODUCTION_API_URL = "https://www.eliteikon.com/api";
 
