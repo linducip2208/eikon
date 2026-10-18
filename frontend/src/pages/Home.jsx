@@ -16,6 +16,15 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import 'swiper/css/effect-fade';
 
+// Judul banner boleh mengandung <br> untuk baris baru; tag lain di-escape
+// agar input admin tidak bisa menyuntik HTML/JS (stored XSS).
+const sanitizeBannerTitle = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/&lt;br\s*\/?&gt;/gi, "<br />");
+
 export default function Home() {
   const [banners, setBanners] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -234,11 +243,7 @@ export default function Home() {
                         Koleksi Kampanye elkon
                       </span>
                       <h2 className="font-serif text-4xl md:text-6xl font-extralight tracking-tight leading-none text-white">
-                        {banner.title.includes("<br") ? (
-                          <span dangerouslySetInnerHTML={{ __html: banner.title }} />
-                        ) : (
-                          banner.title
-                        )}
+                        <span dangerouslySetInnerHTML={{ __html: sanitizeBannerTitle(banner.title) }} />
                       </h2>
                       {banner.subtitle && (
                         <p className="max-w-md text-sm md:text-base font-light text-stone-300 leading-relaxed">

@@ -6,13 +6,27 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+// trust proxy lapis pertama (Nginx/cPanel Passenger) agar req.ip = IP klien asli,
+// dibutuhkan rate limiter agar tidak semua request terbaca 127.0.0.1
+app.set('trust proxy', 1);
+// CORS whitelist: hanya domain toko + dev lokal. Tambah domain via env CORS_ORIGINS
+// (koma, mis. CORS_ORIGINS=https://toko.com,https://admin.toko.com)
+const allowedOrigins = (process.env.CORS_ORIGINS ||
+  'http://localhost:5173,http://eikon.test,https://www.eliteikon.com,https://elkon.whitelabel.co.id'
+).split(',').map((s) => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Origin tidak diizinkan oleh CORS'));
+  },
+}));
 app.use(express.json());
 // iPaymu mengirim callback dalam format x-www-form-urlencoded (default) atau JSON
 app.use(express.urlencoded({ extended: true }));
@@ -34,6 +48,13 @@ async function connectDb() {
     const connection = await pool.getConnection();
     console.log('Successfully connected to MySQL database.');
     connection.release();
+    // Tripwire: peringatkan jika password admin masih default
+    try {
+      const [admins] = await pool.query("SELECT password FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+      if (admins.length > 0 && (await bcrypt.compare('admin123', admins[0].password))) {
+        console.warn('KEAMANAN: password admin masih default (admin123). Segera ganti via menu admin!');
+      }
+    } catch (_) { /* abaikan: tabel belum ada saat migrasi awal */ }
   } catch (error) {
     console.error('MySQL connection failure:', error.message);
     console.log('Retrying MySQL connection in 5 seconds...');
@@ -55,6 +76,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 10 }, // maksimal 5MB per file
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp|gif/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -66,6 +88,63 @@ const upload = multer({
     }
   },
 });
+
+// Verifikasi magic bytes gambar (ekstensi bisa dipalsukan) — hapus file yang tidak valid
+function verifyUploadedImage(file) {
+  const ext = path.extname(file.filename).toLowerCase();
+  let header;
+  try {
+    const fd = fs.openSync(file.path, 'r');
+    header = Buffer.alloc(12);
+    fs.readSync(fd, header, 0, 12, 0);
+    fs.closeSync(fd);
+  } catch (_) {
+    return false;
+  }
+  let ok = false;
+  if (ext === '.jpg' || ext === '.jpeg') {
+    ok = header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+  } else if (ext === '.png') {
+    ok = header.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  } else if (ext === '.gif') {
+    const sig = header.slice(0, 6).toString('ascii');
+    ok = sig === 'GIF87a' || sig === 'GIF89a';
+  } else if (ext === '.webp') {
+    ok = header.slice(0, 4).toString('ascii') === 'RIFF' && header.slice(8, 12).toString('ascii') === 'WEBP';
+  }
+  if (!ok) {
+    try { fs.unlinkSync(file.path); } catch (_) { /* abaikan */ }
+  }
+  return ok;
+}
+
+// Rate limiter sederhana tanpa dependensi (sliding window per IP+path)
+const rateBuckets = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, stamps] of rateBuckets) {
+    const fresh = stamps.filter((t) => now - t < 15 * 60 * 1000);
+    if (fresh.length === 0) rateBuckets.delete(key);
+    else rateBuckets.set(key, fresh);
+  }
+}, 10 * 60 * 1000).unref();
+function rateLimit({ windowMs, max, message }) {
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = `${req.ip}:${req.path}`;
+    const stamps = (rateBuckets.get(key) || []).filter((t) => now - t < windowMs);
+    if (stamps.length >= max) {
+      return res.status(429).json({ success: false, message: message || 'Terlalu banyak permintaan. Coba lagi nanti.' });
+    }
+    stamps.push(now);
+    rateBuckets.set(key, stamps);
+    next();
+  };
+}
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Terlalu banyak percobaan login. Coba lagi 15 menit lagi.' });
+const orderLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
+const callbackLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+const contactLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30 });
 
 // Auth Middleware
 const verifyToken = (req, res, next) => {
@@ -119,7 +198,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email dan password wajib diisi' });
@@ -175,6 +254,9 @@ app.post('/api/upload', verifyToken, upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'Tidak ada gambar yang diunggah' });
   }
+  if (!verifyUploadedImage(req.file)) {
+    return res.status(400).json({ success: false, message: 'File gambar tidak valid' });
+  }
   const relativePath = `/uploads-elkon/${req.file.filename}`;
   res.json({
     success: true,
@@ -187,6 +269,11 @@ app.post('/api/upload', verifyToken, upload.single('image'), (req, res) => {
 app.post('/api/upload-multiple', verifyToken, upload.array('images', 10), (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ success: false, message: 'Tidak ada gambar yang diunggah' });
+  }
+  for (const file of req.files) {
+    if (!verifyUploadedImage(file)) {
+      return res.status(400).json({ success: false, message: 'Salah satu file gambar tidak valid' });
+    }
   }
   const imageUrls = req.files.map((file) => `/uploads-elkon/${file.filename}`);
   res.json({
@@ -280,7 +367,7 @@ app.delete('/api/categories/:id', verifyToken, async (req, res) => {
 // --- CONTACTS ROUTES ---
 
 // POST /api/contacts (Public)
-app.post('/api/contacts', async (req, res) => {
+app.post('/api/contacts', contactLimiter, async (req, res) => {
   const { name, email, message } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ success: false, message: 'Nama, email, dan pesan wajib diisi' });
@@ -1155,7 +1242,7 @@ const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed',
 // --- ORDERS ROUTES ---
 
 // POST /api/orders (Public) - buat pesanan + sesi pembayaran iPaymu
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', orderLimiter, async (req, res) => {
   if (!(await isIpaymuConfigured())) {
     return res.status(503).json({
       success: false,
@@ -1305,14 +1392,19 @@ app.post('/api/orders', async (req, res) => {
     if (error.isPaymentError) {
       return res.status(502).json({ success: false, message: `Gagal membuat sesi pembayaran: ${error.message}` });
     }
-    res.status(400).json({ success: false, message: error.message || 'Gagal membuat pesanan' });
+    // Jangan teruskan pesan error mentah (bisa berisi detail DB/internal) ke publik
+    const isOperational = !error.code && error.name === 'Error';
+    res.status(400).json({
+      success: false,
+      message: isOperational && error.message ? error.message : 'Gagal membuat pesanan. Silakan coba lagi.',
+    });
   } finally {
     connection.release();
   }
 });
 
 // POST /api/ipaymu/callback (Public) - webhook notifikasi pembayaran dari iPaymu
-app.post('/api/ipaymu/callback', async (req, res) => {
+app.post('/api/ipaymu/callback', callbackLimiter, async (req, res) => {
   const { va } = await getIpaymuConfig();
   const rawData = req.body || {};
   const receivedSignature = req.headers['x-signature'];
@@ -1533,6 +1625,27 @@ app.put('/api/orders/:id/status', verifyToken, async (req, res) => {
   } finally {
     connection.release();
   }
+});
+
+
+// Error handler terakhir: semua error tak tertangani (termasuk MulterError dan
+// penolakan CORS) dibalas JSON generik, bukan HTML/stack trace
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err && err.message ? err.message : err);
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ success: false, message: 'Ukuran file maksimal 5MB' });
+    }
+    return res.status(400).json({ success: false, message: 'Upload gagal. Periksa file Anda.' });
+  }
+  if (err && err.message === 'Only images are allowed!') {
+    return res.status(400).json({ success: false, message: 'Hanya file gambar yang diizinkan' });
+  }
+  if (err && err.message === 'Origin tidak diizinkan oleh CORS') {
+    return res.status(403).json({ success: false, message: 'Akses ditolak' });
+  }
+  res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem' });
 });
 
 
