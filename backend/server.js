@@ -19,7 +19,7 @@ app.set('trust proxy', 1);
 // CORS whitelist: hanya domain toko + dev lokal. Tambah domain via env CORS_ORIGINS
 // (koma, mis. CORS_ORIGINS=https://toko.com,https://admin.toko.com)
 const allowedOrigins = (process.env.CORS_ORIGINS ||
-  'http://localhost:5173,http://eikon.test,https://www.eliteikon.com,https://elkon.whitelabel.co.id'
+  'http://localhost:5173,http://127.0.0.1:5173,http://eikon.test,http://eikon.test:5173,https://www.eliteikon.com,https://elkon.whitelabel.co.id'
 ).split(',').map((s) => s.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, cb) => {

@@ -101,6 +101,15 @@ Setelah deploy, isi dari dashboard admin production → tab **Setting**:
 
 Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy isi folder tersebut). `frontend/dist` sengaja ikut git supaya server tidak butuh build sendiri.
 
+## Keamanan (pentest-ready checklist)
+
+- **CORS whitelist** (`backend/server.js`): hanya origin terdaftar. Tambah domain via env `CORS_ORIGINS` (koma).
+- **Rate limit** tanpa dependensi: login 10x/15 mnt/IP, checkout 60x/15 mnt, callback 300x/15 mnt, kontak 30x/jam. Butuh `X-Forwarded-For` valid dari reverse proxy (`trust proxy` = 1 lapis).
+- **Error generik ke publik**: pesan internal (DB/stack) hanya ke log server.
+- **Upload admin**: maksimal 5MB + verifikasi magic bytes (jpg/png/gif/webp), nama file acak.
+- **XSS**: judul banner disanitasi (hanya `<br>` lolos).
+- **Wajib saat go-live**: ganti password admin default (server log memperingatkan bila masih `admin123`), verifikasi akun iPaymu production, daftarkan callback + IP server bila diminta iPaymu.
+
 ## Pembayaran (iPaymu)
 
 Checkout di halaman toko membuat pesanan di database lalu mengarahkan pembeli ke halaman pembayaran iPaymu (VA bank, QRIS, e-wallet). Status pembayaran diperbarui otomatis via callback webhook (signature divalidasi HMAC-SHA256).
