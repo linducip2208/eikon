@@ -9,7 +9,7 @@ import axios from "axios";
 // 3. Hostname lain (production) -> API production
 // Hostname yang memakai API satu domain (relatif "/api"): lokal + domain test.
 // Production utama (www.eliteikon.com) memakai URL absolut di bawah.
-const LOCAL_HOSTNAMES = ["eikon.test", "localhost", "127.0.0.1", "elkom.whitelabel.co.id"];
+const LOCAL_HOSTNAMES = ["eikon.test", "localhost", "127.0.0.1", "elkon.whitelabel.co.id"];
 const PRODUCTION_API_URL = "https://www.eliteikon.com/api";
 
 const resolveApiBaseUrl = () => {
