@@ -1086,9 +1086,18 @@ async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackO
 
 // Reference ID unik pesanan, contoh: ELK-20261017-A1B2C3
 function secureRandomIndex(max) {
-  if (typeof crypto.randomInt === 'function') return crypto.randomInt(0, max);
-  // Fallback Node lama (<14.10): randomBytes selalu ada
-  return crypto.randomBytes(4).readUInt32BE(0) % max;
+  try {
+    const nc = require('crypto');
+    if (nc && typeof nc.randomInt === 'function') return nc.randomInt(0, max);
+    if (nc && typeof nc.randomBytes === 'function') return nc.randomBytes(4).readUInt32BE(0) % max;
+  } catch (_) { /* abaikan, lanjut ke fallback */ }
+  const g = typeof globalThis !== 'undefined' ? globalThis.crypto : null;
+  if (g && typeof g.getRandomValues === 'function') {
+    const arr = new Uint32Array(1);
+    g.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
 }
 
 async function generateOrderReference(connection) {
