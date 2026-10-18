@@ -1083,6 +1083,7 @@ async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackO
     baseUrl,
     env: isProduction ? 'production' : 'sandbox',
     vaLength: (va || '').length,
+    vaPrefix: (va || '').slice(0, 4),
     referenceId,
   }));
   if (!result || Number(result.Status) !== 200 || !result.Data || !result.Data.Url) {
