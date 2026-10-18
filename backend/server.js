@@ -1085,13 +1085,19 @@ async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackO
 }
 
 // Reference ID unik pesanan, contoh: ELK-20261017-A1B2C3
+function secureRandomIndex(max) {
+  if (typeof crypto.randomInt === 'function') return crypto.randomInt(0, max);
+  // Fallback Node lama (<14.10): randomBytes selalu ada
+  return crypto.randomBytes(4).readUInt32BE(0) % max;
+}
+
 async function generateOrderReference(connection) {
   const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   for (let attempt = 0; attempt < 5; attempt += 1) {
     let suffix = '';
     for (let i = 0; i < 6; i += 1) {
-      suffix += alphabet[crypto.randomInt(0, alphabet.length)];
+      suffix += alphabet[secureRandomIndex(alphabet.length)];
     }
     const referenceId = `ELK-${datePart}-${suffix}`;
     const [existing] = await connection.query('SELECT id FROM orders WHERE reference_id = ?', [referenceId]);
