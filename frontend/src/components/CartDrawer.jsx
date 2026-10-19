@@ -154,7 +154,7 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Email</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Email (Wajib)</label>
                       <input
                         type="email"
                         required
