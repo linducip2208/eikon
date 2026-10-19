@@ -37,7 +37,7 @@ export default function AdminLogs() {
   const fetchLogs = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const res = await request.get(API_ENDPOINTS.ADMIN.LOGS, { limit: 500 });
+      const res = await request.get(API_ENDPOINTS.ADMIN.LOGS, { limit: 100 });
       if (res.success) setLogs(res.data || []);
     } catch {
       // Pesan error sudah ditampilkan oleh request helper
@@ -106,7 +106,7 @@ export default function AdminLogs() {
         <div>
           <h2 className="text-xl font-serif font-light text-stone-900 tracking-wide">LOG SERVER</h2>
           <p className="text-xs text-stone-400">
-            500 baris log terakhir dari backend — bisa dilihat tanpa akses terminal, termasuk saat dipasang di hosting.
+            100 baris log terakhir dari backend — bisa dilihat tanpa akses terminal, termasuk saat dipasang di hosting.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -209,7 +209,7 @@ export default function AdminLogs() {
       )}
 
       <p className="text-[11px] text-stone-400">
-        Menampilkan {filteredLogs.length} dari {logs.length} baris (buffer maks 500 baris, terbaru di bawah).
+        Menampilkan {filteredLogs.length} dari {logs.length} baris (buffer maks 100 baris, terbaru di bawah).
         Log juga tersimpan di file <span className="font-mono">backend/logs/server.log</span> di server.
       </p>
     </div>

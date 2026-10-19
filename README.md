@@ -71,7 +71,7 @@ Catatan:
 - Email: `admin@elkon.com`
 - Password: `admin123`
 - Tab **Pesanan** untuk mengelola order (search, filter status, update status pengiriman).
-- Tab **Log** untuk melihat 500 baris log server terakhir langsung dari browser (tanpa akses terminal), lengkap dengan filter level, pencarian, auto-refresh, dan unduh `.txt` — berguna terutama saat aplikasi dipasang di hosting. Log juga tersimpan di `backend/logs/server.log` (rotasi otomatis di 1 MB).
+- Tab **Log** untuk melihat 100 baris log server terakhir langsung dari browser (tanpa akses terminal), lengkap dengan filter level, pencarian, auto-refresh, dan unduh `.txt` — berguna terutama saat aplikasi dipasang di hosting. Log juga tersimpan di `backend/logs/server.log` (rotasi otomatis di 1 MB).
 
 ## Deploy ke Production (pull-only)
 

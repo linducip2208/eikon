@@ -34,8 +34,12 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
 
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
-    if (!shippingInfo.name || !shippingInfo.address || !shippingInfo.city || !shippingInfo.phone) {
-      toast.error("Silakan lengkapi semua data pengiriman.");
+    if (!shippingInfo.name || !shippingInfo.address || !shippingInfo.city || !shippingInfo.phone || !shippingInfo.email) {
+      toast.error("Silakan lengkapi semua data pengiriman (termasuk email).");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingInfo.email.trim())) {
+      toast.error("Format email tidak valid.");
       return;
     }
     if (cartItems.length === 0) {
@@ -150,9 +154,10 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Email (opsional)</label>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Email</label>
                       <input
                         type="email"
+                        required
                         className="w-full bg-white border border-stone-200 px-3 py-2 text-sm text-stone-950 focus:border-stone-900 focus:outline-none transition-all"
                         placeholder="cth. nama@email.com"
                         value={shippingInfo.email}

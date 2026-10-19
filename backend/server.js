@@ -11,11 +11,11 @@ require('dotenv').config();
 
 // --- SERVER LOG BUFFER (untuk tab "Log" di dashboard admin) ---
 // Semua output console di-tee ke:
-//   1) ring buffer in-memory (500 baris terakhir) -> dibaca endpoint /api/admin/logs
+//   1) ring buffer in-memory (100 baris terakhir) -> dibaca endpoint /api/admin/logs
 //   2) file backend/logs/server.log (rotasi di 1 MB -> server.log.old)
 // Tujuannya supaya log bisa dilihat dari browser di hosting yang tidak
 // menyediakan akses terminal / file log ke pengguna.
-const LOG_BUFFER_MAX = 500;
+const LOG_BUFFER_MAX = 100;
 const LOG_LINE_MAX = 2000;
 const LOG_FILE_MAX_BYTES = 1024 * 1024;
 const LOG_DIR = path.join(__dirname, 'logs');
@@ -62,7 +62,7 @@ function recordLog(level, args) {
 
 // Muat riwayat log terakhir dari file saat server dinyalakan,
 // supaya isi tab "Log" tidak hilang setiap restart aplikasi.
-function loadRecentLogsFromFile(maxEntries = 200) {
+function loadRecentLogsFromFile(maxEntries = 100) {
   try {
     if (!fs.existsSync(LOG_FILE)) return;
     const lines = fs.readFileSync(LOG_FILE, 'utf8').split(/\r?\n/).filter(Boolean).slice(-maxEntries);
@@ -757,12 +757,12 @@ app.get('/api/admin/stats', verifyToken, async (req, res) => {
 });
 
 // GET /api/admin/logs (Admin) - ring buffer log server untuk tab "Log" di dashboard
-// Mendukung ?limit= (default 200), ?level=info|warn|error, ?search= (substring).
+// Mendukung ?limit= (default 100), ?level=info|warn|error, ?search= (substring).
 // Nilai sensitif tidak pernah masuk ke log (API key selalu disamarkan di pemanggilnya).
 app.get('/api/admin/logs', verifyToken, (req, res) => {
   try {
     const limitRaw = parseInt(req.query.limit, 10);
-    const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 200 : limitRaw, 1), LOG_BUFFER_MAX);
+    const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 100 : limitRaw, 1), LOG_BUFFER_MAX);
     const level = String(req.query.level || '').toLowerCase();
     const search = String(req.query.search || '').trim().toLowerCase();
 
@@ -1535,10 +1535,11 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
   const cleanCity = String(city || '').trim();
   const cleanNotes = String(notes || '').trim();
 
-  if (!cleanName || !cleanPhone || !cleanAddress || !cleanCity) {
-    return res.status(400).json({ success: false, message: 'Nama, telepon, alamat, dan kota wajib diisi' });
+  // Email wajib diisi: dibutuhkan gateway pembayaran (Tripay menolak customer_email kosong)
+  if (!cleanName || !cleanPhone || !cleanEmail || !cleanAddress || !cleanCity) {
+    return res.status(400).json({ success: false, message: 'Nama, telepon, email, alamat, dan kota wajib diisi' });
   }
-  if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
     return res.status(400).json({ success: false, message: 'Format email tidak valid' });
   }
   if (!Array.isArray(items) || items.length === 0) {
