@@ -255,36 +255,10 @@ const verifyToken = (req, res, next) => {
 
 // --- AUTH ROUTES ---
 
-// POST /api/auth/register
+// POST /api/auth/register - DINONAKTIFKAN: admin dibuat via seed database.
+// Dibiarkan sebagai endpoint tertutup agar tidak ada yang bisa mendaftar sebagai admin.
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ success: false, message: 'Nama, email, dan password wajib diisi' });
-  }
-
-  try {
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
-      return res.status(400).json({ success: false, message: 'Email sudah terdaftar' });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const [result] = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-      [name, email, hashedPassword, 'admin']
-    );
-
-    res.status(201).json({
-      success: true,
-      message: 'Admin berhasil didaftarkan',
-      data: { id: result.insertId, name, email },
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem' });
-  }
+  return res.status(403).json({ success: false, message: 'Pendaftaran akun baru dinonaktifkan' });
 });
 
 // POST /api/auth/login
@@ -335,6 +309,72 @@ app.get('/api/auth/profile', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Profile fetch error:', error);
     res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem' });
+  }
+});
+
+// PUT /api/auth/profile (Admin) - ubah nama & email admin
+app.put('/api/auth/profile', verifyToken, async (req, res) => {
+  const { name, email } = req.body || {};
+  const cleanName = String(name || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  if (!cleanName) {
+    return res.status(400).json({ success: false, message: 'Nama wajib diisi' });
+  }
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return res.status(400).json({ success: false, message: 'Format email tidak valid' });
+  }
+
+  try {
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ? AND id <> ?', [cleanEmail, req.user.id]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Email sudah dipakai akun lain' });
+    }
+    await pool.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [cleanName, cleanEmail, req.user.id]);
+    res.json({
+      success: true,
+      message: 'Profil admin berhasil diperbarui. Login berikutnya memakai email baru.',
+      user: { id: req.user.id, name: cleanName, email: cleanEmail },
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ success: false, message: 'Gagal memperbarui profil' });
+  }
+});
+
+// PUT /api/auth/password (Admin) - ganti password (wajib tahu password lama)
+app.put('/api/auth/password', verifyToken, async (req, res) => {
+  const currentPassword = String((req.body || {}).current_password || '');
+  const newPassword = String((req.body || {}).new_password || '');
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: 'Password lama dan password baru wajib diisi' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ success: false, message: 'Password baru minimal 8 karakter' });
+  }
+
+  try {
+    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+    }
+    const isMatch = await bcrypt.compare(currentPassword, users[0].password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Password lama salah' });
+    }
+    const isSame = await bcrypt.compare(newPassword, users[0].password);
+    if (isSame) {
+      return res.status(400).json({ success: false, message: 'Password baru tidak boleh sama dengan password lama' });
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.id]);
+    res.json({ success: true, message: 'Password berhasil diubah. Silakan login ulang.' });
+  } catch (error) {
+    console.error('Password change error:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengubah password' });
   }
 });
 

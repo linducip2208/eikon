@@ -104,6 +104,7 @@ mysql -u <user> -p <nama_db> < backend/sql/payment_gateway_secrets.sql
 Setelah deploy, isi dari dashboard admin:
 
 - Tab **Setting** → **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
+- Tab **Setting** → **Akun Admin**: ubah nama, email login, dan password admin (wajib tahu password lama; setelah ganti password diminta login ulang). Lakukan ini pertama kali untuk mengganti password default `admin123`.
 - Tab **Payment Gateway**: pilih gateway aktif (iPaymu / Tripay), lengkapi kredensialnya, dan isi URL Website Toko = `https://eliteikon.com`.
 
 Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy isi folder tersebut). `frontend/dist` sengaja ikut git supaya server tidak butuh build sendiri.
