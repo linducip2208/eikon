@@ -10,9 +10,11 @@ import AdminBanners from "./admin/AdminBanners";
 import AdminOrders from "./admin/AdminOrders";
 import AdminContacts from "./admin/AdminContacts";
 import AdminSettings from "./admin/AdminSettings";
+import AdminPaymentGateway from "./admin/AdminPaymentGateway";
+import AdminLogs from "./admin/AdminLogs";
 
 export default function AdminDashboard() {
-  // Navigation tab states: products, categories, banners, orders, contacts, settings
+  // Navigation tab states: products, categories, banners, orders, contacts, settings, payment, logs
   const [activeTab, setActiveTab] = useState("products");
 
   // Stats dashboard state
@@ -126,6 +128,26 @@ export default function AdminDashboard() {
         >
           Pengaturan
         </button>
+        <button
+          onClick={() => { setActiveTab("payment"); }}
+          className={`px-6 py-3.5 text-xs font-semibold uppercase tracking-wider border-b-2 whitespace-nowrap transition-all ${
+            activeTab === "payment"
+              ? "border-stone-900 text-stone-900"
+              : "border-transparent text-stone-400 hover:text-stone-700"
+          }`}
+        >
+          Payment Gateway
+        </button>
+        <button
+          onClick={() => { setActiveTab("logs"); }}
+          className={`px-6 py-3.5 text-xs font-semibold uppercase tracking-wider border-b-2 whitespace-nowrap transition-all ${
+            activeTab === "logs"
+              ? "border-stone-900 text-stone-900"
+              : "border-transparent text-stone-400 hover:text-stone-700"
+          }`}
+        >
+          Log
+        </button>
       </div>
 
       {/* Dynamic Statistics Cards */}
@@ -150,6 +172,12 @@ export default function AdminDashboard() {
         )}
         {activeTab === "settings" && (
           <AdminSettings onActionSuccess={fetchStats} />
+        )}
+        {activeTab === "payment" && (
+          <AdminPaymentGateway />
+        )}
+        {activeTab === "logs" && (
+          <AdminLogs />
         )}
       </div>
     </div>

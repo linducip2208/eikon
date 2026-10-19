@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
   },
   ADMIN: {
     STATS: "/admin/stats",
+    LOGS: "/admin/logs",
   },
   UPLOAD: "/upload",
   UPLOAD_MULTIPLE: "/upload-multiple",

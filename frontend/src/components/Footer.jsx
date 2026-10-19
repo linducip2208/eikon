@@ -111,7 +111,7 @@ export default function Footer({ settings }) {
         <div className="flex flex-col items-center justify-between gap-4 border-t border-stone-100 py-6 md:flex-row">
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-stone-500">
             <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            Pembayaran aman &amp; terverifikasi via iPaymu
+            Pembayaran aman &amp; terverifikasi otomatis
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {PAYMENT_METHODS.map((method) => (

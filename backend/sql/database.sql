@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS settings (
 
 -- Seed Admin User (password: admin123)
 INSERT INTO users (name, email, password, role) VALUES 
-('Elkon Admin', 'admin@elkon.com', '$2a$10$tMhI3Q93l6M.8Jp7s9KqBuxm8n9Qx7L5pX5s6uA8EwG8oD.R1f1wK', 'admin')
+('Elkon Admin', 'admin@elkon.com', '$2a$12$i6zVIXcznxOJGbLOSlarD.S.zafFMM9OGL2zMqZOfKVXXYL7eXzP.', 'admin')
 ON DUPLICATE KEY UPDATE id=id;
 
 -- Seed Categories
@@ -127,11 +127,17 @@ INSERT INTO product_variants (product_id, size, color, sku, price_override, stoc
 (3, 'L', 'Sand', 'ELK-RES-SND-L', 1750000.00, 10)
 ON DUPLICATE KEY UPDATE id=id;
 
--- Seed Contact Messages
-INSERT INTO contacts (name, email, message, status) VALUES
-('Budi Santoso', 'budi@gmail.com', 'Halo, apakah produk Linen Editorial Trench warna Beige ukuran XL akan segera diproduksi? Saya sangat tertarik membelinya.', 'unread'),
-('Siti Aminah', 'siti@yahoo.com', 'Sore, saya ingin menanyakan tentang pengiriman ke Surabaya menggunakan ekspedisi apa saja ya? Apakah bisa sameday?', 'read')
-ON DUPLICATE KEY UPDATE id=id;
+-- Seed Contact Messages (idempotent: hanya ditambahkan bila pesan yang sama belum ada,
+-- karena tabel contacts tidak punya unique key dan file ini bisa diimpor berulang)
+INSERT INTO contacts (name, email, message, status)
+SELECT 'Budi Santoso', 'budi@gmail.com', 'Halo, apakah produk Linen Editorial Trench warna Beige ukuran XL akan segera diproduksi? Saya sangat tertarik membelinya.', 'unread'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM contacts WHERE email = 'budi@gmail.com' AND message LIKE 'Halo, apakah produk Linen Editorial Trench%');
+
+INSERT INTO contacts (name, email, message, status)
+SELECT 'Siti Aminah', 'siti@yahoo.com', 'Sore, saya ingin menanyakan tentang pengiriman ke Surabaya menggunakan ekspedisi apa saja ya? Apakah bisa sameday?', 'read'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM contacts WHERE email = 'siti@yahoo.com' AND message LIKE 'Sore, saya ingin menanyakan tentang pengiriman ke Surabaya%');
 
 -- Seed Banners
 INSERT INTO banners (id, title, subtitle, image, link_url, status) VALUES
@@ -153,6 +159,13 @@ INSERT INTO settings (key_name, value_text) VALUES
 ('business_address', 'Bekasi City, West Java, Indonesia')
 ON DUPLICATE KEY UPDATE value_text=value_text;
 
--- Catatan: pengaturan payment gateway (ipaymu_env, ipaymu_va, ipaymu_api_key,
--- ipaymu_notify_url) dan site_url TIDAK di-seed karena bersifat rahasia dan
--- berbeda per environment. Isi dari dashboard admin: Setting > Payment Gateway.
+-- Seed Gateway Pembayaran Aktif ('ipaymu' atau 'tripay' — dipilih dari menu Payment Gateway admin)
+INSERT INTO settings (key_name, value_text) VALUES
+('active_payment_gateway', 'ipaymu')
+ON DUPLICATE KEY UPDATE value_text=value_text;
+
+-- Catatan: kredensial payment gateway (ipaymu_env, ipaymu_va, ipaymu_api_key,
+-- ipaymu_notify_url, tripay_env, tripay_merchant_code, tripay_api_key,
+-- tripay_private_key, tripay_channel, tripay_callback_url) dan site_url TIDAK
+-- di-seed karena bersifat rahasia dan berbeda per environment.
+-- Isi dari dashboard admin: menu Payment Gateway.

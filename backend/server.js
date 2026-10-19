@@ -9,6 +9,88 @@ const crypto = require('crypto');
 const fs = require('fs');
 require('dotenv').config();
 
+// --- SERVER LOG BUFFER (untuk tab "Log" di dashboard admin) ---
+// Semua output console di-tee ke:
+//   1) ring buffer in-memory (500 baris terakhir) -> dibaca endpoint /api/admin/logs
+//   2) file backend/logs/server.log (rotasi di 1 MB -> server.log.old)
+// Tujuannya supaya log bisa dilihat dari browser di hosting yang tidak
+// menyediakan akses terminal / file log ke pengguna.
+const LOG_BUFFER_MAX = 500;
+const LOG_LINE_MAX = 2000;
+const LOG_FILE_MAX_BYTES = 1024 * 1024;
+const LOG_DIR = path.join(__dirname, 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'server.log');
+const logBuffer = [];
+
+function stringifyLogArg(value) {
+  if (typeof value === 'string') return value;
+  if (value instanceof Error) return value.stack || value.message;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function appendLogFile(line) {
+  try {
+    if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+    try {
+      if (fs.statSync(LOG_FILE).size > LOG_FILE_MAX_BYTES) {
+        fs.renameSync(LOG_FILE, `${LOG_FILE}.old`);
+      }
+    } catch {
+      // file belum ada -> langsung append di bawah
+    }
+    fs.appendFileSync(LOG_FILE, `${line}\n`);
+  } catch {
+    // File log bersifat opsional (mis. disk read-only) — jangan sampai melempar error
+  }
+}
+
+function recordLog(level, args) {
+  try {
+    const message = args.map(stringifyLogArg).join(' ').slice(0, LOG_LINE_MAX);
+    const entry = { time: new Date().toISOString(), level, message };
+    logBuffer.push(entry);
+    if (logBuffer.length > LOG_BUFFER_MAX) logBuffer.shift();
+    appendLogFile(`[${entry.time}] [${level.toUpperCase()}] ${message}`);
+  } catch {
+    // logging tidak boleh pernah menyebabkan error aplikasi
+  }
+}
+
+// Muat riwayat log terakhir dari file saat server dinyalakan,
+// supaya isi tab "Log" tidak hilang setiap restart aplikasi.
+function loadRecentLogsFromFile(maxEntries = 200) {
+  try {
+    if (!fs.existsSync(LOG_FILE)) return;
+    const lines = fs.readFileSync(LOG_FILE, 'utf8').split(/\r?\n/).filter(Boolean).slice(-maxEntries);
+    for (const line of lines) {
+      const match = line.match(/^\[([^\]]+)\] \[([A-Z]+)\] ([\s\S]*)$/);
+      if (!match) continue;
+      const level = match[2].toLowerCase();
+      logBuffer.push({
+        time: match[1],
+        level: ['info', 'warn', 'error'].includes(level) ? level : 'info',
+        message: match[3].slice(0, LOG_LINE_MAX),
+      });
+    }
+  } catch {
+    // Riwayat log bersifat opsional — jangan sampai menghambat server start
+  }
+}
+loadRecentLogsFromFile();
+
+// Tee console.log/warn/error ke buffer — output terminal tetap seperti biasa
+['log', 'warn', 'error'].forEach((method) => {
+  const original = console[method].bind(console);
+  console[method] = (...args) => {
+    recordLog(method === 'log' ? 'info' : method, args);
+    original(...args);
+  };
+});
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -27,7 +109,15 @@ app.use(cors({
     return cb(new Error('Origin tidak diizinkan oleh CORS'));
   },
 }));
-app.use(express.json());
+// `verify` menyimpan raw body — dipakai memvalidasi X-Callback-Signature Tripay
+// (HMAC-SHA256 dihitung dari byte body asli, bukan hasil parse ulang).
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 // iPaymu mengirim callback dalam format x-www-form-urlencoded (default) atau JSON
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads-elkon', express.static(path.join(__dirname, 'uploads-elkon')));
@@ -532,7 +622,9 @@ app.get('/api/version', (req, res) => {
 // GET /api/settings (Public - tanpa kredensial payment gateway)
 app.get('/api/settings', async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT key_name, value_text FROM settings WHERE key_name NOT LIKE 'ipaymu%'");
+    const [rows] = await pool.query(
+      "SELECT key_name, value_text FROM settings WHERE key_name NOT LIKE 'ipaymu%' AND key_name NOT LIKE 'tripay%' AND key_name <> 'active_payment_gateway'"
+    );
     const settingsMap = {};
     rows.forEach(r => {
       settingsMap[r.key_name] = r.value_text;
@@ -572,7 +664,17 @@ app.put('/api/settings', verifyToken, async (req, res) => {
     if (key === 'ipaymu_env' && valueText && !['sandbox', 'production'].includes(valueText.toLowerCase())) {
       return res.status(400).json({ success: false, message: "Mode iPaymu harus 'sandbox' atau 'production'" });
     }
-    if ((key === 'site_url' || key === 'ipaymu_notify_url') && valueText && !/^https?:\/\//i.test(valueText)) {
+    if (key === 'tripay_env' && valueText && !['sandbox', 'production'].includes(valueText.toLowerCase())) {
+      return res.status(400).json({ success: false, message: "Mode Tripay harus 'sandbox' atau 'production'" });
+    }
+    if (key === 'active_payment_gateway' && valueText && !['ipaymu', 'tripay'].includes(valueText.toLowerCase())) {
+      return res.status(400).json({ success: false, message: "Gateway aktif harus 'ipaymu' atau 'tripay'" });
+    }
+    if (
+      (key === 'site_url' || key === 'ipaymu_notify_url' || key === 'tripay_callback_url') &&
+      valueText &&
+      !/^https?:\/\//i.test(valueText)
+    ) {
       return res.status(400).json({
         success: false,
         message: `URL ${key === 'site_url' ? 'Website Toko' : 'Callback'} harus diawali http:// atau https://`,
@@ -580,6 +682,15 @@ app.put('/api/settings', verifyToken, async (req, res) => {
     }
     if (key === 'ipaymu_va' && valueText && !/^[0-9]+$/.test(valueText)) {
       return res.status(400).json({ success: false, message: 'Nomor VA iPaymu hanya boleh berisi angka' });
+    }
+    if (key === 'tripay_channel' && valueText && !/^[a-z0-9_]+$/i.test(valueText)) {
+      return res.status(400).json({ success: false, message: 'Kode channel Tripay hanya boleh berisi huruf, angka, dan garis bawah (cth. QRIS, BRIVA)' });
+    }
+    if (key === 'tripay_expired_minutes' && valueText) {
+      const minutes = parseInt(valueText, 10);
+      if (Number.isNaN(minutes) || minutes < 10 || minutes > 4320) {
+        return res.status(400).json({ success: false, message: 'Masa berlaku pembayaran Tripay harus antara 10 dan 4320 menit' });
+      }
     }
     if (key === 'business_email' && valueText && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valueText)) {
       return res.status(400).json({ success: false, message: 'Format email bisnis tidak valid' });
@@ -592,8 +703,9 @@ app.put('/api/settings', verifyToken, async (req, res) => {
   try {
     for (const [key, val] of Object.entries(settingsObj)) {
       let valueText = typeof val === "string" ? val.trim() : String(val);
-      if (key === 'ipaymu_env') valueText = valueText.toLowerCase();
-      if (key === 'site_url') valueText = valueText.replace(/\/+$/, '');
+      if (key === 'ipaymu_env' || key === 'tripay_env' || key === 'active_payment_gateway') valueText = valueText.toLowerCase();
+      if (key === 'tripay_channel') valueText = valueText.toUpperCase();
+      if (key === 'site_url' || key === 'tripay_callback_url') valueText = valueText.replace(/\/+$/, '');
       await connection.query(
         'INSERT INTO settings (key_name, value_text) VALUES (?, ?) ON DUPLICATE KEY UPDATE value_text = ?',
         [key, valueText, valueText]
@@ -641,6 +753,37 @@ app.get('/api/admin/stats', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Get stats error:', error);
     res.status(500).json({ success: false, message: 'Gagal mengambil data statistik dashboard' });
+  }
+});
+
+// GET /api/admin/logs (Admin) - ring buffer log server untuk tab "Log" di dashboard
+// Mendukung ?limit= (default 200), ?level=info|warn|error, ?search= (substring).
+// Nilai sensitif tidak pernah masuk ke log (API key selalu disamarkan di pemanggilnya).
+app.get('/api/admin/logs', verifyToken, (req, res) => {
+  try {
+    const limitRaw = parseInt(req.query.limit, 10);
+    const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 200 : limitRaw, 1), LOG_BUFFER_MAX);
+    const level = String(req.query.level || '').toLowerCase();
+    const search = String(req.query.search || '').trim().toLowerCase();
+
+    let entries = logBuffer;
+    if (['info', 'warn', 'error'].includes(level)) {
+      entries = entries.filter((entry) => entry.level === level);
+    }
+    if (search) {
+      entries = entries.filter((entry) => entry.message.toLowerCase().includes(search));
+    }
+
+    res.json({
+      success: true,
+      data: entries.slice(-limit),
+      total: logBuffer.length,
+      filtered: entries.length,
+      bufferLimit: LOG_BUFFER_MAX,
+    });
+  } catch (error) {
+    console.error('Get logs error:', error);
+    res.status(500).json({ success: false, message: 'Gagal mengambil log server' });
   }
 });
 
@@ -1029,6 +1172,49 @@ async function isIpaymuConfigured() {
   return Boolean(va && apiKey);
 }
 
+// Gateway aktif yang dipakai checkout: 'ipaymu' (default) atau 'tripay'.
+// Dipilih admin dari dashboard > menu Payment Gateway (tersimpan di tabel settings).
+async function getActivePaymentGateway() {
+  const [rows] = await pool.query("SELECT value_text FROM settings WHERE key_name = 'active_payment_gateway'");
+  const value = String((rows[0] && rows[0].value_text) || '').trim().toLowerCase();
+  return value === 'tripay' ? 'tripay' : 'ipaymu';
+}
+
+// --- TRIPAY PAYMENT GATEWAY (konfigurasi & helper) ---
+// Kredensial TIDAK di-hardcode: dibaca dari tabel `settings` dan diatur
+// dari dashboard admin (menu Payment Gateway).
+
+async function getTripayConfig() {
+  const [rows] = await pool.query(
+    "SELECT key_name, value_text FROM settings WHERE key_name IN ('tripay_env', 'tripay_merchant_code', 'tripay_api_key', 'tripay_private_key', 'tripay_channel', 'tripay_expired_minutes', 'tripay_callback_url', 'site_url')"
+  );
+  const map = {};
+  rows.forEach((r) => {
+    map[r.key_name] = String(r.value_text || '').trim();
+  });
+
+  const isProduction = (map.tripay_env || 'sandbox').toLowerCase() === 'production';
+  const defaultBaseUrl = isProduction ? 'https://tripay.co.id/api' : 'https://tripay.co.id/api-sandbox';
+  const expiredMinutes = parseInt(map.tripay_expired_minutes, 10);
+  return {
+    // TRIPAY_BASE_URL hanya untuk debug/testing lokal (opsional) — bukan kredensial
+    baseUrl: (process.env.TRIPAY_BASE_URL || defaultBaseUrl).replace(/\/+$/, ''),
+    merchantCode: map.tripay_merchant_code || '',
+    apiKey: map.tripay_api_key || '',
+    privateKey: map.tripay_private_key || '',
+    channel: (map.tripay_channel || '').toUpperCase(),
+    expiredMinutes: Number.isFinite(expiredMinutes) && expiredMinutes >= 10 ? expiredMinutes : 60,
+    siteUrl: (map.site_url || '').replace(/\/+$/, ''),
+    callbackUrl: (map.tripay_callback_url || '').replace(/\/+$/, ''),
+    isProduction,
+  };
+}
+
+async function isTripayConfigured() {
+  const { merchantCode, apiKey, privateKey, channel } = await getTripayConfig();
+  return Boolean(merchantCode && apiKey && privateKey && channel);
+}
+
 // Origin request saat ini — fallback jika `site_url` belum diatur di Setting admin
 function getRequestOrigin(req) {
   const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
@@ -1162,7 +1348,7 @@ async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackO
   }
 
   const result = await response.json().catch(() => null);
-  // Trap log: diagnosis 401/unauthorized tanpa mencatat secret (tanpa apiKey)
+  // Log ringkas respons iPaymu untuk diagnosis via tab Log admin (tanpa apiKey)
   console.error('iPaymu payment response:', JSON.stringify({
     httpStatus: response.status,
     ipaymuStatus: result ? result.Status : null,
@@ -1184,6 +1370,94 @@ async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackO
   return {
     sessionId: result.Data.SessionID || null,
     paymentUrl: result.Data.Url,
+  };
+}
+
+// Sesi pembayaran Tripay (closed payment):
+// signature = HMAC-SHA256(merchantCode + merchantRef + amount, privateKey)
+async function createTripayPaymentSession({ referenceId, items, buyer, fallbackOrigin }) {
+  const { baseUrl, merchantCode, apiKey, privateKey, channel, expiredMinutes, siteUrl, callbackUrl, isProduction } =
+    await getTripayConfig();
+
+  // URL toko untuk return/callback: dari Setting admin, fallback ke origin request
+  const appUrl = siteUrl || fallbackOrigin || '';
+  if (!appUrl) {
+    const paymentError = new Error('URL Website Toko belum diatur. Isi di Admin > Payment Gateway.');
+    paymentError.isPaymentError = true;
+    throw paymentError;
+  }
+
+  const amount = items.reduce((sum, item) => sum + Math.round(Number(item.price)) * item.quantity, 0);
+  const signature = crypto
+    .createHmac('sha256', privateKey)
+    .update(`${merchantCode}${referenceId}${amount}`)
+    .digest('hex');
+
+  const body = {
+    method: channel,
+    merchant_ref: referenceId,
+    amount,
+    customer_name: buyer.name,
+    customer_email: buyer.email || '',
+    customer_phone: buyer.phone,
+    order_items: items.map((item) => ({
+      sku: item.sku || `VAR-${item.variant_id}`,
+      name: item.product_name,
+      price: Math.round(Number(item.price)),
+      quantity: item.quantity,
+      product_url: `${appUrl}/product/${item.product_id}`,
+    })),
+    callback_url: callbackUrl || `${appUrl}/api/tripay/callback`,
+    return_url: `${appUrl}/order/${referenceId}`,
+    expired_time: Math.floor(Date.now() / 1000) + expiredMinutes * 60,
+    signature,
+  };
+
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/transaction/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (networkError) {
+    console.error('Tripay fetch error:', networkError.name, networkError.message);
+    const paymentError = new Error('Tidak dapat menghubungi Tripay. Periksa koneksi internet server.');
+    paymentError.isPaymentError = true;
+    throw paymentError;
+  }
+
+  const result = await response.json().catch(() => null);
+  // Log ringkas untuk diagnosis dari tab Log admin (tanpa apiKey/privateKey)
+  console.log(
+    'Tripay payment response:',
+    JSON.stringify({
+      httpStatus: response.status,
+      success: result ? result.success : null,
+      message: result ? result.message : null,
+      baseUrl,
+      env: isProduction ? 'production' : 'sandbox',
+      channel,
+      referenceId,
+    })
+  );
+
+  const data = result && result.data;
+  if (!result || !result.success || !data || !data.reference) {
+    const paymentError = new Error(
+      result && result.message ? `Tripay: ${result.message}` : 'Gagal membuat sesi pembayaran di Tripay'
+    );
+    paymentError.isPaymentError = true;
+    throw paymentError;
+  }
+
+  return {
+    sessionId: String(data.reference),
+    paymentUrl: data.checkout_url || data.pay_url || '',
   };
 }
 
@@ -1241,12 +1515,14 @@ const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed',
 
 // --- ORDERS ROUTES ---
 
-// POST /api/orders (Public) - buat pesanan + sesi pembayaran iPaymu
+// POST /api/orders (Public) - buat pesanan + sesi pembayaran di gateway aktif (iPaymu/Tripay)
 app.post('/api/orders', orderLimiter, async (req, res) => {
-  if (!(await isIpaymuConfigured())) {
+  const activeGateway = await getActivePaymentGateway();
+  const isGatewayConfigured = activeGateway === 'tripay' ? await isTripayConfigured() : await isIpaymuConfigured();
+  if (!isGatewayConfigured) {
     return res.status(503).json({
       success: false,
-      message: 'Payment gateway belum dikonfigurasi. Lengkapi di Admin > Setting > Payment Gateway',
+      message: `Payment gateway ${activeGateway === 'tripay' ? 'Tripay' : 'iPaymu'} belum dikonfigurasi. Lengkapi di Admin > Payment Gateway.`,
     });
   }
 
@@ -1335,8 +1611,8 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
     const [orderResult] = await connection.query(
       `INSERT INTO orders
         (reference_id, buyer_name, buyer_phone, buyer_email, address, city, notes, subtotal, total, status, payment_provider)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'ipaymu')`,
-      [referenceId, cleanName, cleanPhone, cleanEmail || null, cleanAddress, cleanCity, cleanNotes || null, subtotal, subtotal]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [referenceId, cleanName, cleanPhone, cleanEmail || null, cleanAddress, cleanCity, cleanNotes || null, subtotal, subtotal, activeGateway]
     );
     const orderId = orderResult.insertId;
 
@@ -1360,13 +1636,17 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
       );
     }
 
-    // Buat sesi pembayaran iPaymu; kalau gagal, seluruh transaksi di-rollback
-    const payment = await createIpaymuPaymentSession({
+    // Buat sesi pembayaran di gateway aktif; kalau gagal, seluruh transaksi di-rollback
+    const paymentPayload = {
       referenceId,
       items: orderItems,
       buyer: { name: cleanName, phone: cleanPhone, email: cleanEmail },
       fallbackOrigin: getRequestOrigin(req),
-    });
+    };
+    const payment =
+      activeGateway === 'tripay'
+        ? await createTripayPaymentSession(paymentPayload)
+        : await createIpaymuPaymentSession(paymentPayload);
 
     await connection.query('UPDATE orders SET payment_session_id = ?, payment_url = ? WHERE id = ?', [
       payment.sessionId,
@@ -1382,6 +1662,7 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
       data: {
         id: orderId,
         reference_id: referenceId,
+        payment_provider: activeGateway,
         total: subtotal,
         payment_url: payment.paymentUrl,
       },
@@ -1469,6 +1750,96 @@ app.post('/api/ipaymu/callback', callbackLimiter, async (req, res) => {
   } catch (error) {
     console.error('iPaymu callback error:', error);
     res.status(500).json({ status: 'ERROR', message: 'Gagal memproses callback' });
+  }
+});
+
+// POST /api/tripay/callback (Public) - webhook notifikasi pembayaran dari Tripay
+// Keamanan: header X-Callback-Signature = HMAC-SHA256(body mentah, private key) wajib valid.
+app.post('/api/tripay/callback', callbackLimiter, async (req, res) => {
+  const { privateKey } = await getTripayConfig();
+
+  try {
+    if (!privateKey) {
+      console.error('Tripay callback: private key belum dikonfigurasi, signature tidak dapat divalidasi');
+      return res.status(400).json({ success: false });
+    }
+
+    const rawBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {});
+    const expectedSignature = crypto.createHmac('sha256', privateKey).update(rawBody).digest('hex');
+    const receivedSignature = String(req.headers['x-callback-signature'] || '').toLowerCase();
+
+    const signatureValid =
+      receivedSignature.length === expectedSignature.length &&
+      crypto.timingSafeEqual(Buffer.from(receivedSignature), Buffer.from(expectedSignature));
+
+    if (!signatureValid) {
+      console.warn('Tripay callback: signature tidak valid');
+      return res.status(401).json({ success: false });
+    }
+
+    // Hanya memproses event perubahan status pembayaran
+    const event = String(req.headers['x-callback-event'] || '');
+    if (event && event !== 'payment_status') {
+      return res.status(200).json({ success: true });
+    }
+
+    const data = (req.body && req.body.data) || req.body || {};
+    const referenceId = data.merchant_ref;
+    if (!referenceId) {
+      return res.status(200).json({ success: true, message: 'Callback tanpa merchant_ref diabaikan' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      const [orders] = await connection.query('SELECT * FROM orders WHERE reference_id = ? FOR UPDATE', [referenceId]);
+      if (orders.length === 0) {
+        await connection.rollback();
+        return res.status(200).json({ success: true, message: 'Pesanan tidak ditemukan, diabaikan' });
+      }
+
+      const order = orders[0];
+      const status = String(data.status || '').toUpperCase();
+
+      if (status === 'PAID') {
+        // Idempotent: jangan proses ulang kalau sudah paid.
+        // Kolom ipaymu_trx_id dipakai menyimpan ID transaksi gateway aktif (iPaymu trx_id / Tripay reference).
+        if (order.status !== 'paid') {
+          await connection.query(
+            "UPDATE orders SET status = 'paid', paid_at = NOW(), ipaymu_trx_id = ?, payment_channel = ? WHERE id = ?",
+            [
+              data.reference !== undefined && data.reference !== null ? String(data.reference) : null,
+              data.payment_method_code !== undefined && data.payment_method_code !== null
+                ? String(data.payment_method_code)
+                : null,
+              order.id,
+            ]
+          );
+          await applyOrderStockReduction(connection, order.id);
+        }
+      } else if (status === 'EXPIRED') {
+        if (order.status === 'pending') {
+          await connection.query("UPDATE orders SET status = 'expired' WHERE id = ?", [order.id]);
+        }
+      } else if (status === 'FAILED') {
+        if (order.status === 'pending') {
+          await connection.query("UPDATE orders SET status = 'cancelled' WHERE id = ?", [order.id]);
+        }
+      }
+      // REFUND: tidak mengubah status otomatis, ditangani manual oleh admin
+
+      await connection.commit();
+      res.status(200).json({ success: true });
+    } catch (innerError) {
+      await connection.rollback();
+      throw innerError;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Tripay callback error:', error);
+    res.status(500).json({ success: false, message: 'Gagal memproses callback' });
   }
 });
 

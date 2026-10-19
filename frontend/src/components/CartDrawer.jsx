@@ -197,7 +197,7 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
                   </div>
 
                   <p className="text-[11px] text-stone-400 leading-relaxed">
-                    Setelah menekan tombol di bawah, Anda akan diarahkan ke halaman pembayaran iPaymu (VA bank, QRIS, e-wallet).
+                    Setelah menekan tombol di bawah, Anda akan diarahkan ke halaman pembayaran resmi (VA bank, QRIS, e-wallet).
                   </p>
 
                   <button

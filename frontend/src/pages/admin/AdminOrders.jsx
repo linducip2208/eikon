@@ -149,7 +149,7 @@ export default function AdminOrders({ onActionSuccess }) {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-xl font-serif font-light text-stone-900 tracking-wide">PESANAN MASUK</h2>
-          <p className="text-xs text-stone-400">Kelola pesanan pembeli, pantau pembayaran iPaymu, dan perbarui status pengiriman.</p>
+          <p className="text-xs text-stone-400">Kelola pesanan pembeli, pantau status pembayaran, dan perbarui status pengiriman.</p>
         </div>
       </div>
 
@@ -404,7 +404,7 @@ export default function AdminOrders({ onActionSuccess }) {
 
                 {/* Info pembayaran */}
                 <div className="bg-white border border-stone-150 p-4 space-y-2">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">Pembayaran (iPaymu)</h4>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">Pembayaran ({detail.payment_provider === "tripay" ? "Tripay" : "iPaymu"})</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-stone-600">
                     <p>Channel: <span className="font-semibold text-stone-900">{detail.payment_channel || "-"}</span></p>
                     <p>Trx ID: <span className="font-mono">{detail.ipaymu_trx_id || "-"}</span></p>

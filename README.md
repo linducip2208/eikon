@@ -71,6 +71,7 @@ Catatan:
 - Email: `admin@elkon.com`
 - Password: `admin123`
 - Tab **Pesanan** untuk mengelola order (search, filter status, update status pengiriman).
+- Tab **Log** untuk melihat 500 baris log server terakhir langsung dari browser (tanpa akses terminal), lengkap dengan filter level, pencarian, auto-refresh, dan unduh `.txt` — berguna terutama saat aplikasi dipasang di hosting. Log juga tersimpan di `backend/logs/server.log` (rotasi otomatis di 1 MB).
 
 ## Deploy ke Production (pull-only)
 
@@ -94,10 +95,10 @@ mysql -u <user> -p <nama_db> < backend/sql/migration_settings.sql
 # 4. Restart aplikasi Node backend (mis. cPanel → Setup Node.js App → Restart)
 ```
 
-Setelah deploy, isi dari dashboard admin production → tab **Setting**:
+Setelah deploy, isi dari dashboard admin:
 
-- **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
-- **Payment Gateway**: mode (sandbox/production), VA & API Key iPaymu, URL Website Toko = `https://eliteikon.com`.
+- Tab **Setting** → **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
+- Tab **Payment Gateway**: pilih gateway aktif (iPaymu / Tripay), lengkapi kredensialnya, dan isi URL Website Toko = `https://eliteikon.com`.
 
 Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy isi folder tersebut). `frontend/dist` sengaja ikut git supaya server tidak butuh build sendiri.
 
@@ -108,32 +109,43 @@ Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy i
 - **Error generik ke publik**: pesan internal (DB/stack) hanya ke log server.
 - **Upload admin**: maksimal 5MB + verifikasi magic bytes (jpg/png/gif/webp), nama file acak.
 - **XSS**: judul banner disanitasi (hanya `<br>` lolos).
-- **Wajib saat go-live**: ganti password admin default (server log memperingatkan bila masih `admin123`), verifikasi akun iPaymu production, daftarkan callback + IP server bila diminta iPaymu.
+- **Wajib saat go-live**: ganti password admin default (server log memperingatkan bila masih `admin123`), verifikasi akun payment gateway production (iPaymu/Tripay), daftarkan callback + IP server bila diminta gateway.
 
-## Pembayaran (iPaymu)
+## Pembayaran (iPaymu / Tripay)
 
-Checkout di halaman toko membuat pesanan di database lalu mengarahkan pembeli ke halaman pembayaran iPaymu (VA bank, QRIS, e-wallet). Status pembayaran diperbarui otomatis via callback webhook (signature divalidasi HMAC-SHA256).
+Checkout di halaman toko membuat pesanan di database lalu mengarahkan pembeli ke halaman pembayaran gateway yang **aktif** (VA bank, QRIS, e-wallet). Status pembayaran diperbarui otomatis via callback webhook — signature HMAC-SHA256 dari kedua gateway divalidasi di server.
 
-### Konfigurasi (via menu Setting admin — tanpa edit .env)
+### Konfigurasi (via menu Payment Gateway admin — tanpa edit .env)
 
-Semua kredensial diatur dari **dashboard admin → tab Setting → bagian Payment Gateway** (tersimpan di database, langsung aktif tanpa restart server):
+Semua kredensial diatur dari **dashboard admin → tab Payment Gateway** (tersimpan di database, langsung aktif tanpa restart server):
 
-- **Mode**: `Sandbox` (testing) atau `Production` (live)
-- **Nomor VA** & **API Key**: dari dashboard iPaymu → menu Integrasi
-  - Sandbox: https://sandbox.ipaymu.com/integration
-  - Production: https://my.ipaymu.com/integration
+- **Pemilih gateway**: klik kartu **iPaymu** atau **Tripay** — form kredensial di bawahnya otomatis berubah mengikuti pilihan, dan gateway terpilih menjadi gateway aktif checkout setelah disimpan.
+- **Mode**: `Sandbox` (testing) atau `Production` (live) — tersedia untuk kedua gateway.
+- **iPaymu**:
+  - **Nomor VA** & **API Key**: dari dashboard iPaymu → menu Integrasi
+    - Sandbox: https://sandbox.ipaymu.com/integration
+    - Production: https://my.ipaymu.com/integration
+  - **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/ipaymu/callback`
+- **Tripay**:
+  - **Merchant Code**, **API Key**, **Private Key**: dari dashboard Tripay (https://tripay.co.id/member)
+    - Sandbox: menu API & Integrasi → Simulator → Merchant → Detail
+    - Production: menu Merchant → Opsi → Edit
+  - **Channel Pembayaran**: kode channel yang aktif di akun Anda (cth. `QRIS`, `BRIVA`, `BNIVA`, `BCAVA`, `ALFAMART`)
+  - **Masa Berlaku** (menit): sesuaikan dengan batas channel — mis. QRIS maksimal 60 menit, VA bisa hingga 4320 menit
+  - **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/tripay/callback`
 - **URL Website Toko**: domain toko untuk redirect setelah pembayaran (lokal: `http://eikon.test` · production: `https://eliteikon.com`)
-- **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/ipaymu/callback` — daftarkan URL ini di dashboard iPaymu agar status pembayaran ter-update otomatis
-  - **Catatan**: callback harus bisa diakses dari internet oleh server iPaymu. Untuk testing lokal gunakan tunnel (mis. `ngrok http 5000`) dan isi URL Callback dengan `https://xxxx.ngrok-free.app/api/ipaymu/callback`
-- Untuk production: daftarkan domain & IP statis server di pengaturan iPaymu
 
-Catatan keamanan: endpoint publik `/api/settings` **tidak pernah** mengembalikan kredensial payment gateway — hanya endpoint admin (`/api/settings/admin`, butuh token) yang bisa membacanya.
+Catatan:
+- Callback harus bisa diakses dari internet oleh server gateway. Untuk testing lokal gunakan tunnel (mis. `ngrok http 5000`) lalu isi URL Callback dengan URL tunnel.
+- Jika server Anda memakai whitelist IP untuk callback, izinkan IP server Tripay: `95.111.200.230` (dan IPv6 `2a04:3543:1000:2310:ac92:4cff:fe87:63f9`).
+- Endpoint publik `/api/settings` **tidak pernah** mengembalikan kredensial payment gateway (iPaymu maupun Tripay) — hanya endpoint admin (`/api/settings/admin`, butuh token) yang bisa membacanya.
 
 ### Alur status pesanan
 
-`pending` → (callback iPaymu) → `paid` → `processing` → `shipped` → `completed`, serta `cancelled` / `expired`.
+`pending` → (callback gateway) → `paid` → `processing` → `shipped` → `completed`, serta `cancelled` / `expired`.
 
 - Stok varian otomatis berkurang sekali saat status menjadi `paid` (idempotent).
+- Callback Tripay: status `PAID` → `paid`, `EXPIRED` → `expired`, `FAILED` → `cancelled`; status `REFUND` tidak mengubah apa pun (ditangani manual oleh admin).
 - Halaman pembeli: `/order/{reference_id}` (menampilkan ringkasan, status realtime, tombol lanjut bayar).
 
 ### Halaman publik & informasi bisnis (persyaratan verifikasi payment gateway)
@@ -158,7 +170,7 @@ mysql -u root --default-character-set=utf8mb4 elkon_db < backend/sql/migration_o
 mysql -u root --default-character-set=utf8mb4 elkon_db < backend/sql/migration_settings.sql
 ```
 
-Catatan: kredensial payment gateway (`ipaymu_*`) dan `site_url` **tidak pernah di-seed** karena bersifat rahasia dan berbeda per environment — diatur dari dashboard admin: Setting > Payment Gateway.
+Catatan: kredensial payment gateway (`ipaymu_*` dan `tripay_*`) serta `site_url` **tidak pernah di-seed** karena bersifat rahasia dan berbeda per environment — diatur dari dashboard admin: menu Payment Gateway. Hanya `active_payment_gateway` (default `ipaymu`) yang ikut di-seed.
 
 ### Catatan gambar produk
 

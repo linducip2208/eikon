@@ -18,5 +18,8 @@ elkon-main.zip
 elkon-main/
 backend/uploads-elkon.zip
 
+# Log server (dibuat saat runtime oleh backend/logs)
+backend/logs/
+
 # Dump database production (berisi data asli, jangan di-commit)
 kinq6231_elkon.sql

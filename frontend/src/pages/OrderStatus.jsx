@@ -47,7 +47,7 @@ export default function OrderStatus() {
     fetchOrder();
   }, [fetchOrder]);
 
-  // Polling status selama menunggu pembayaran (callback iPaymu mengubah status di server)
+  // Polling status selama menunggu pembayaran (callback payment gateway mengubah status di server)
   useEffect(() => {
     if (!order || order.status !== "pending") return;
     const timer = setInterval(() => fetchOrder(true), 5000);
@@ -116,14 +116,14 @@ export default function OrderStatus() {
 
           {paymentCancelled && isPending && (
             <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-              Anda membatalkan proses pembayaran di halaman iPaymu. Pesanan masih tersimpan — klik tombol di bawah untuk mencoba lagi selama belum kedaluwarsa.
+              Anda membatalkan proses pembayaran. Pesanan masih tersimpan — klik tombol di bawah untuk mencoba lagi selama belum kedaluwarsa.
             </div>
           )}
 
           {isPending && (
             <>
               <p className="text-xs text-stone-500 leading-relaxed">
-                Pesanan Anda sudah tercatat. Selesaikan pembayaran melalui halaman iPaymu (Virtual Account bank, QRIS, atau e-wallet). Status di halaman ini akan otomatis berubah setelah pembayaran terkonfirmasi.
+                Pesanan Anda sudah tercatat. Selesaikan pembayaran melalui halaman pembayaran resmi (Virtual Account bank, QRIS, atau e-wallet). Status di halaman ini akan otomatis berubah setelah pembayaran terkonfirmasi.
               </p>
               {order.payment_url ? (
                 <button
