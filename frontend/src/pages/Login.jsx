@@ -62,7 +62,7 @@ export default function Login({ onLoginSuccess }) {
                 type="email"
                 required
                 className="w-full bg-stone-50/50 border border-stone-200 pl-10 pr-4 py-3 text-sm text-stone-950 focus:border-stone-900 focus:outline-none transition-all placeholder-stone-450"
-                placeholder="admin@elkon.com"
+                placeholder="nama@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -100,13 +100,6 @@ export default function Login({ onLoginSuccess }) {
             </button>
           </div>
         </form>
-
-        <div className="mt-6 text-center border-t border-stone-100 pt-6">
-          <p className="text-[11px] text-stone-400 leading-relaxed">
-            Kredensial bawaan untuk pengujian lokal: <br />
-            Email: <span className="font-medium text-stone-600">admin@elkon.com</span> &middot; Kata Sandi: <span className="font-medium text-stone-600">admin123</span>
-          </p>
-        </div>
       </div>
     </div>
   );
