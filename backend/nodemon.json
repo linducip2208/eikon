@@ -1,0 +1,4 @@
+{
+  "watch": ["server.js"],
+  "ignore": ["logs/*", "uploads-elkon/*", "node_modules/*"]
+}
