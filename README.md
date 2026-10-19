@@ -91,6 +91,12 @@ git pull
 # 3. Migrasi database yang belum dijalankan (lihat bagian File database)
 mysql -u <user> -p <nama_db> < backend/sql/migration_orders.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_settings.sql
+mysql -u <user> -p <nama_db> < backend/sql/migration_payment_gateway.sql
+
+# 3b. Kredensial payment gateway (sekali per server — TIDAK ikut git):
+#     copy backend/sql/payment_gateway_secrets.example.sql menjadi
+#     backend/sql/payment_gateway_secrets.sql, isi nilai asli, lalu:
+mysql -u <user> -p <nama_db> < backend/sql/payment_gateway_secrets.sql
 
 # 4. Restart aplikasi Node backend (mis. cPanel → Setup Node.js App → Restart)
 ```
@@ -162,6 +168,8 @@ Konten halaman kebijakan berada di `frontend/src/data/legal.js`. Alamat, email, 
 - `database.sql` — skema lengkap + seed untuk instalasi baru (admin, kategori, produk contoh, banner, settings termasuk info bisnis terbaru).
 - `migration_orders.sql` — tabel `orders` + `order_items` untuk database yang sudah berjalan.
 - `migration_settings.sql` — pengaturan info bisnis (`business_*`) untuk database yang sudah berjalan; aman diulang karena nilai yang sudah ada tidak ditimpa.
+- `migration_payment_gateway.sql` — default pengaturan gateway non-rahasia (`active_payment_gateway`, `*_env`, `tripay_channel`, `tripay_expired_minutes`); aman diulang, tidak menimpa nilai yang sudah ada.
+- `payment_gateway_secrets.example.sql` — template import kredensial (API key, private key, VA, merchant code, `site_url`). Copy menjadi `payment_gateway_secrets.sql` (di-gitignore), isi nilai asli sekali per server, lalu import. File asli tidak pernah masuk git.
 
 Jalankan migrasi ke database yang sudah ada (mis. production):
 

@@ -23,3 +23,6 @@ backend/logs/
 
 # Dump database production (berisi data asli, jangan di-commit)
 kinq6231_elkon.sql
+
+# Kredensial payment gateway per-server (lihat payment_gateway_secrets.example.sql)
+backend/sql/payment_gateway_secrets.sql
