@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag, LogOut, LayoutDashboard, Menu, X } from "lucide-react";
+import { ShoppingBag, LogOut, LayoutDashboard, Menu, X, LogIn } from "lucide-react";
 
 export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogout }) {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogou
           {/* Right - Profile, Cart, and Hamburger */}
           <div className="flex items-center space-x-4 md:space-x-6 text-stone-700">
             {/* Desktop Admin controls */}
-            {isAuthenticated && (
+            {isAuthenticated ? (
               <div className="hidden md:flex items-center space-x-4">
                 <Link
                   to="/admin"
@@ -51,6 +51,15 @@ export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogou
                   <LogOut className="h-5 w-5" />
                 </button>
               </div>
+            ) : (
+              <Link
+                to="/login"
+                className="hidden md:flex items-center space-x-1 text-[11px] font-semibold tracking-[0.2em] uppercase text-stone-600 hover:text-stone-900 transition-colors duration-200"
+                title="Masuk"
+              >
+                <LogIn className="h-5 w-5" />
+                <span className="hidden sm:inline">Masuk</span>
+              </Link>
             )}
 
             {/* Cart Button (Always visible) */}
@@ -104,7 +113,7 @@ export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogou
             >
               Hubungi Kami
             </Link>
-            {isAuthenticated && (
+            {isAuthenticated ? (
               <>
                 <Link
                   to="/admin"
@@ -126,6 +135,15 @@ export default function Navbar({ cartCount, onCartOpen, isAuthenticated, onLogou
                   <span>Keluar</span>
                 </button>
               </>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center space-x-2 hover:text-stone-900 py-3 transition-colors duration-200"
+                onClick={closeMobileMenu}
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Masuk</span>
+              </Link>
             )}
           </div>
         </div>
