@@ -654,7 +654,7 @@ app.delete('/api/banners/:id', verifyToken, async (req, res) => {
 
 // GET /api/version (Public) - penanda build yang live di server (untuk verifikasi deploy)
 app.get('/api/version', (req, res) => {
-  res.json({ success: true, build: '2026-10-18-fix3', node: process.version });
+  res.json({ success: true, build: '2026-10-22-proxy1', node: process.version });
 });
 
 // --- SETTINGS ROUTES ---
