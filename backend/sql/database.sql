@@ -156,16 +156,10 @@ ON DUPLICATE KEY UPDATE value_text=value_text;
 INSERT INTO settings (key_name, value_text) VALUES
 ('business_email', 'ekonindonesiajaya@gmail.com'),
 ('business_phone_admin', '087753427090'),
-('business_address', 'Bekasi City, West Java, Indonesia')
+('business_address', 'Jl. Kasuari 1 No. 167, Jaticempaka, Pondok Gede, Bekasi')
 ON DUPLICATE KEY UPDATE value_text=value_text;
 
--- Seed Gateway Pembayaran Aktif ('ipaymu' atau 'tripay' — dipilih dari menu Payment Gateway admin)
-INSERT INTO settings (key_name, value_text) VALUES
-('active_payment_gateway', 'ipaymu')
-ON DUPLICATE KEY UPDATE value_text=value_text;
-
--- Catatan: kredensial payment gateway (ipaymu_env, ipaymu_va, ipaymu_api_key,
--- ipaymu_notify_url, tripay_env, tripay_merchant_code, tripay_api_key,
+-- Catatan: kredensial Tripay (tripay_env, tripay_merchant_code, tripay_api_key,
 -- tripay_private_key, tripay_channel, tripay_callback_url) dan site_url TIDAK
 -- di-seed karena bersifat rahasia dan berbeda per environment.
--- Isi dari dashboard admin: menu Payment Gateway.
+-- Isi dari dashboard admin: menu Payment Gateway (Tripay).

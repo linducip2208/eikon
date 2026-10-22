@@ -404,7 +404,7 @@ export default function AdminOrders({ onActionSuccess }) {
 
                 {/* Info pembayaran */}
                 <div className="bg-white border border-stone-150 p-4 space-y-2">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">Pembayaran ({detail.payment_provider === "tripay" ? "Tripay" : "iPaymu"})</h4>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">Pembayaran (Tripay)</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-stone-600">
                     <p>Channel: <span className="font-semibold text-stone-900">{detail.payment_channel || "-"}</span></p>
                     <p>Trx ID: <span className="font-mono">{detail.ipaymu_trx_id || "-"}</span></p>

@@ -1,4 +1,4 @@
--- Migration: Orders + Order Items (untuk checkout & pembayaran iPaymu)
+-- Migration: Orders + Order Items (untuk checkout & pembayaran Tripay)
 -- Jalankan di database elkon_db
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS orders (
   subtotal DECIMAL(14,2) NOT NULL,
   total DECIMAL(14,2) NOT NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'pending', -- pending, paid, processing, shipped, completed, cancelled, expired
-  payment_provider VARCHAR(30) NOT NULL DEFAULT 'ipaymu',
+  payment_provider VARCHAR(30) NOT NULL DEFAULT 'tripay',
   payment_session_id VARCHAR(120) NULL,
   payment_url VARCHAR(500) NULL,
   ipaymu_trx_id VARCHAR(60) NULL,

@@ -1,22 +1,12 @@
--- CONTOH file import kredensial payment gateway (JANGAN isi file ini).
+-- CONTOH file import kredensial Tripay (JANGAN isi file ini).
 -- Cara pakai:
 --   1. Copy file ini menjadi `payment_gateway_secrets.sql` (file asli di-gitignore, tidak ikut git).
---   2. Ganti semua GANTI_DENGAN_... dengan nilai asli dari dashboard iPaymu / Tripay.
+--   2. Ganti semua GANTI_DENGAN_... dengan nilai asli dari dashboard Tripay.
 --   3. Import sekali per server:  mysql -u <user> -p <nama_db> < backend/sql/payment_gateway_secrets.sql
 -- File ini (yang .example) sengaja berisi placeholder supaya kunci asli tidak pernah masuk git.
 
--- ===== iPaymu =====
+-- ===== Tripay (satu-satunya gateway) =====
 -- INSERT INTO settings (key_name, value_text) VALUES
--- ('ipaymu_env', 'sandbox'),
--- ('ipaymu_va', 'GANTI_DENGAN_NOMOR_VA_IPAYMU'),
--- ('ipaymu_api_key', 'GANTI_DENGAN_API_KEY_IPAYMU'),
--- ('ipaymu_notify_url', ''),
--- ('site_url', 'GANTI_DENGAN_URL_TOKO_MISAL_https://eliteikon.com')
--- ON DUPLICATE KEY UPDATE value_text=VALUES(value_text);
-
--- ===== Tripay =====
--- INSERT INTO settings (key_name, value_text) VALUES
--- ('active_payment_gateway', 'tripay'),
 -- ('tripay_env', 'sandbox'),
 -- ('tripay_merchant_code', 'GANTI_DENGAN_MERCHANT_CODE_TRIPAY'),
 -- ('tripay_api_key', 'GANTI_DENGAN_API_KEY_TRIPAY'),

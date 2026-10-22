@@ -92,6 +92,7 @@ git pull
 mysql -u <user> -p <nama_db> < backend/sql/migration_orders.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_settings.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_payment_gateway.sql
+mysql -u <user> -p <nama_db> < backend/sql/migration_tripay_only.sql
 
 # 3b. Kredensial payment gateway (sekali per server — TIDAK ikut git):
 #     copy backend/sql/payment_gateway_secrets.example.sql menjadi
@@ -105,7 +106,7 @@ Setelah deploy, isi dari dashboard admin:
 
 - Tab **Setting** → **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
 - Tab **Setting** → **Akun Admin**: ubah nama, email login, dan password admin (wajib tahu password lama; setelah ganti password diminta login ulang). Lakukan ini pertama kali untuk mengganti password default `admin123`.
-- Tab **Payment Gateway**: pilih gateway aktif (iPaymu / Tripay), lengkapi kredensialnya, dan isi URL Website Toko = `https://eliteikon.com`.
+- Tab **Payment Gateway** (Tripay): lengkapi Merchant Code, API Key, Private Key, Channel, dan isi URL Website Toko = `https://eliteikon.com`.
 
 Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy isi folder tersebut). `frontend/dist` sengaja ikut git supaya server tidak butuh build sendiri.
 
@@ -116,36 +117,29 @@ Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy i
 - **Error generik ke publik**: pesan internal (DB/stack) hanya ke log server.
 - **Upload admin**: maksimal 5MB + verifikasi magic bytes (jpg/png/gif/webp), nama file acak.
 - **XSS**: judul banner disanitasi (hanya `<br>` lolos).
-- **Wajib saat go-live**: ganti password admin default (server log memperingatkan bila masih `admin123`), verifikasi akun payment gateway production (iPaymu/Tripay), daftarkan callback + IP server bila diminta gateway.
+- **Wajib saat go-live**: ganti password admin default (server log memperingatkan bila masih `admin123`), verifikasi akun Tripay production, daftarkan callback + IP server bila diminta gateway.
 
-## Pembayaran (iPaymu / Tripay)
+## Pembayaran (Tripay)
 
-Checkout di halaman toko membuat pesanan di database lalu mengarahkan pembeli ke halaman pembayaran gateway yang **aktif** (VA bank, QRIS, e-wallet). Status pembayaran diperbarui otomatis via callback webhook — signature HMAC-SHA256 dari kedua gateway divalidasi di server.
+Checkout di halaman toko membuat pesanan di database lalu mengarahkan pembeli ke halaman pembayaran Tripay (VA bank, QRIS, e-wallet, gerai retail). Status pembayaran diperbarui otomatis via callback webhook — signature HMAC-SHA256 divalidasi di server.
 
 ### Konfigurasi (via menu Payment Gateway admin — tanpa edit .env)
 
 Semua kredensial diatur dari **dashboard admin → tab Payment Gateway** (tersimpan di database, langsung aktif tanpa restart server):
 
-- **Pemilih gateway**: klik kartu **iPaymu** atau **Tripay** — form kredensial di bawahnya otomatis berubah mengikuti pilihan, dan gateway terpilih menjadi gateway aktif checkout setelah disimpan.
-- **Mode**: `Sandbox` (testing) atau `Production` (live) — tersedia untuk kedua gateway.
-- **iPaymu**:
-  - **Nomor VA** & **API Key**: dari dashboard iPaymu → menu Integrasi
-    - Sandbox: https://sandbox.ipaymu.com/integration
-    - Production: https://my.ipaymu.com/integration
-  - **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/ipaymu/callback`
-- **Tripay**:
-  - **Merchant Code**, **API Key**, **Private Key**: dari dashboard Tripay (https://tripay.co.id/member)
-    - Sandbox: menu API & Integrasi → Simulator → Merchant → Detail
-    - Production: menu Merchant → Opsi → Edit
-  - **Channel Pembayaran**: kode channel yang aktif di akun Anda (cth. `QRIS`, `BRIVA`, `BNIVA`, `BCAVA`, `ALFAMART`)
-  - **Masa Berlaku** (menit): sesuaikan dengan batas channel — mis. QRIS maksimal 60 menit, VA bisa hingga 4320 menit
-  - **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/tripay/callback`
+- **Mode**: `Sandbox` (testing) atau `Production` (live).
+- **Merchant Code**, **API Key**, **Private Key**: dari dashboard Tripay (https://tripay.co.id/member)
+  - Sandbox: menu API & Integrasi → Simulator → Merchant → Detail
+  - Production: menu Merchant → Opsi → Edit
+- **Channel Pembayaran**: kode channel yang aktif di akun Anda (cth. `QRIS`, `BRIVA`, `BNIVA`, `BCAVA`, `ALFAMART`)
+- **Masa Berlaku** (menit): sesuaikan dengan batas channel — mis. QRIS maksimal 60 menit, VA bisa hingga 4320 menit
+- **URL Callback** (opsional): kosongkan untuk memakai otomatis `{URL Website Toko}/api/tripay/callback`
 - **URL Website Toko**: domain toko untuk redirect setelah pembayaran (lokal: `http://eikon.test` · production: `https://eliteikon.com`)
 
 Catatan:
 - Callback harus bisa diakses dari internet oleh server gateway. Untuk testing lokal gunakan tunnel (mis. `ngrok http 5000`) lalu isi URL Callback dengan URL tunnel.
 - Jika server Anda memakai whitelist IP untuk callback, izinkan IP server Tripay: `95.111.200.230` (dan IPv6 `2a04:3543:1000:2310:ac92:4cff:fe87:63f9`).
-- Endpoint publik `/api/settings` **tidak pernah** mengembalikan kredensial payment gateway (iPaymu maupun Tripay) — hanya endpoint admin (`/api/settings/admin`, butuh token) yang bisa membacanya.
+- Endpoint publik `/api/settings` **tidak pernah** mengembalikan kredensial Tripay — hanya endpoint admin (`/api/settings/admin`, butuh token) yang bisa membacanya.
 
 ### Alur status pesanan
 
@@ -169,8 +163,9 @@ Konten halaman kebijakan berada di `frontend/src/data/legal.js`. Alamat, email, 
 - `database.sql` — skema lengkap + seed untuk instalasi baru (admin, kategori, produk contoh, banner, settings termasuk info bisnis terbaru).
 - `migration_orders.sql` — tabel `orders` + `order_items` untuk database yang sudah berjalan.
 - `migration_settings.sql` — pengaturan info bisnis (`business_*`) untuk database yang sudah berjalan; aman diulang karena nilai yang sudah ada tidak ditimpa.
-- `migration_payment_gateway.sql` — default pengaturan gateway non-rahasia (`active_payment_gateway`, `*_env`, `tripay_channel`, `tripay_expired_minutes`); aman diulang, tidak menimpa nilai yang sudah ada.
-- `payment_gateway_secrets.example.sql` — template import kredensial (API key, private key, VA, merchant code, `site_url`). Copy menjadi `payment_gateway_secrets.sql` (di-gitignore), isi nilai asli sekali per server, lalu import. File asli tidak pernah masuk git.
+- `migration_payment_gateway.sql` — default pengaturan Tripay non-rahasia (`tripay_env`, `tripay_channel`, `tripay_expired_minutes`); aman diulang, tidak menimpa nilai yang sudah ada.
+- `migration_tripay_only.sql` — hapus sisa kunci iPaymu/`active_payment_gateway`, samakan `payment_provider` lama ke `tripay`; wajib dijalankan sekali untuk DB yang sebelumnya memakai iPaymu.
+- `payment_gateway_secrets.example.sql` — template import kredensial Tripay (merchant code, API key, private key, `site_url`). Copy menjadi `payment_gateway_secrets.sql` (di-gitignore), isi nilai asli sekali per server, lalu import. File asli tidak pernah masuk git.
 
 Jalankan migrasi ke database yang sudah ada (mis. production):
 
@@ -179,7 +174,7 @@ mysql -u root --default-character-set=utf8mb4 elkon_db < backend/sql/migration_o
 mysql -u root --default-character-set=utf8mb4 elkon_db < backend/sql/migration_settings.sql
 ```
 
-Catatan: kredensial payment gateway (`ipaymu_*` dan `tripay_*`) serta `site_url` **tidak pernah di-seed** karena bersifat rahasia dan berbeda per environment — diatur dari dashboard admin: menu Payment Gateway. Hanya `active_payment_gateway` (default `ipaymu`) yang ikut di-seed.
+Catatan: kredensial Tripay (`tripay_*`) serta `site_url` **tidak pernah di-seed** karena bersifat rahasia dan berbeda per environment — diatur dari dashboard admin: menu Payment Gateway.
 
 ### Catatan gambar produk
 

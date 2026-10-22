@@ -663,7 +663,7 @@ app.get('/api/version', (req, res) => {
 app.get('/api/settings', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT key_name, value_text FROM settings WHERE key_name NOT LIKE 'ipaymu%' AND key_name NOT LIKE 'tripay%' AND key_name <> 'active_payment_gateway'"
+      "SELECT key_name, value_text FROM settings WHERE key_name NOT LIKE 'tripay%'"
     );
     const settingsMap = {};
     rows.forEach(r => {
@@ -693,25 +693,19 @@ app.get('/api/settings/admin', verifyToken, async (req, res) => {
 
 // PUT /api/settings (Admin)
 app.put('/api/settings', verifyToken, async (req, res) => {
-  const settingsObj = req.body; // e.g. { whatsapp_number: '62...' } atau { ipaymu_va: '...' }
+  const settingsObj = req.body; // e.g. { whatsapp_number: '62...' } atau { tripay_merchant_code: '...' }
   if (!settingsObj || Object.keys(settingsObj).length === 0) {
     return res.status(400).json({ success: false, message: 'Data pengaturan tidak boleh kosong' });
   }
 
-  // Validasi khusus pengaturan payment gateway & URL
+  // Validasi khusus pengaturan payment gateway (Tripay) & URL
   for (const [key, val] of Object.entries(settingsObj)) {
     const valueText = typeof val === 'string' ? val.trim() : String(val ?? '');
-    if (key === 'ipaymu_env' && valueText && !['sandbox', 'production'].includes(valueText.toLowerCase())) {
-      return res.status(400).json({ success: false, message: "Mode iPaymu harus 'sandbox' atau 'production'" });
-    }
     if (key === 'tripay_env' && valueText && !['sandbox', 'production'].includes(valueText.toLowerCase())) {
       return res.status(400).json({ success: false, message: "Mode Tripay harus 'sandbox' atau 'production'" });
     }
-    if (key === 'active_payment_gateway' && valueText && !['ipaymu', 'tripay'].includes(valueText.toLowerCase())) {
-      return res.status(400).json({ success: false, message: "Gateway aktif harus 'ipaymu' atau 'tripay'" });
-    }
     if (
-      (key === 'site_url' || key === 'ipaymu_notify_url' || key === 'tripay_callback_url') &&
+      (key === 'site_url' || key === 'tripay_callback_url') &&
       valueText &&
       !/^https?:\/\//i.test(valueText)
     ) {
@@ -719,9 +713,6 @@ app.put('/api/settings', verifyToken, async (req, res) => {
         success: false,
         message: `URL ${key === 'site_url' ? 'Website Toko' : 'Callback'} harus diawali http:// atau https://`,
       });
-    }
-    if (key === 'ipaymu_va' && valueText && !/^[0-9]+$/.test(valueText)) {
-      return res.status(400).json({ success: false, message: 'Nomor VA iPaymu hanya boleh berisi angka' });
     }
     if (key === 'tripay_channel' && valueText && !/^[a-z0-9_]+$/i.test(valueText)) {
       return res.status(400).json({ success: false, message: 'Kode channel Tripay hanya boleh berisi huruf, angka, dan garis bawah (cth. QRIS, BRIVA)' });
@@ -743,7 +734,7 @@ app.put('/api/settings', verifyToken, async (req, res) => {
   try {
     for (const [key, val] of Object.entries(settingsObj)) {
       let valueText = typeof val === "string" ? val.trim() : String(val);
-      if (key === 'ipaymu_env' || key === 'tripay_env' || key === 'active_payment_gateway') valueText = valueText.toLowerCase();
+      if (key === 'tripay_env') valueText = valueText.toLowerCase();
       if (key === 'tripay_channel') valueText = valueText.toUpperCase();
       if (key === 'site_url' || key === 'tripay_callback_url') valueText = valueText.replace(/\/+$/, '');
       await connection.query(
@@ -1181,46 +1172,7 @@ app.delete('/api/products/:id', verifyToken, async (req, res) => {
   }
 });
 
-// --- IPAYMU PAYMENT GATEWAY (konfigurasi & helper) ---
-// Kredensial TIDAK di-hardcode: dibaca dari tabel `settings` dan diatur
-// dari dashboard admin (tab Setting > bagian Payment Gateway).
-
-async function getIpaymuConfig() {
-  const [rows] = await pool.query(
-    "SELECT key_name, value_text FROM settings WHERE key_name IN ('ipaymu_env', 'ipaymu_va', 'ipaymu_api_key', 'ipaymu_notify_url', 'site_url')"
-  );
-  const map = {};
-  rows.forEach((r) => {
-    map[r.key_name] = String(r.value_text || '').trim();
-  });
-
-  const isProduction = (map.ipaymu_env || 'sandbox').toLowerCase() === 'production';
-  const defaultBaseUrl = isProduction ? 'https://my.ipaymu.com/api/v2' : 'https://sandbox.ipaymu.com/api/v2';
-  return {
-    // IPAYMU_BASE_URL hanya untuk debug/testing lokal (opsional) — bukan kredensial
-    baseUrl: (process.env.IPAYMU_BASE_URL || defaultBaseUrl).replace(/\/+$/, ''),
-    va: map.ipaymu_va || '',
-    apiKey: map.ipaymu_api_key || '',
-    siteUrl: (map.site_url || '').replace(/\/+$/, ''),
-    notifyUrl: map.ipaymu_notify_url || '',
-    isProduction,
-  };
-}
-
-async function isIpaymuConfigured() {
-  const { va, apiKey } = await getIpaymuConfig();
-  return Boolean(va && apiKey);
-}
-
-// Gateway aktif yang dipakai checkout: 'ipaymu' (default) atau 'tripay'.
-// Dipilih admin dari dashboard > menu Payment Gateway (tersimpan di tabel settings).
-async function getActivePaymentGateway() {
-  const [rows] = await pool.query("SELECT value_text FROM settings WHERE key_name = 'active_payment_gateway'");
-  const value = String((rows[0] && rows[0].value_text) || '').trim().toLowerCase();
-  return value === 'tripay' ? 'tripay' : 'ipaymu';
-}
-
-// --- TRIPAY PAYMENT GATEWAY (konfigurasi & helper) ---
+// --- TRIPAY PAYMENT GATEWAY (satu-satunya gateway yang dipakai checkout) ---
 // Kredensial TIDAK di-hardcode: dibaca dari tabel `settings` dan diatur
 // dari dashboard admin (menu Payment Gateway).
 
@@ -1262,155 +1214,6 @@ function getRequestOrigin(req) {
   const proto = forwardedProto || req.protocol || 'http';
   const host = forwardedHost || String(req.get('host') || '').trim();
   return host ? `${proto}://${host}` : '';
-}
-
-// Timestamp request iPaymu: YYYYMMDDHHmmss (waktu lokal server)
-function formatIpaymuTimestamp(date = new Date()) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return (
-    date.getFullYear().toString() +
-    pad(date.getMonth() + 1) +
-    pad(date.getDate()) +
-    pad(date.getHours()) +
-    pad(date.getMinutes()) +
-    pad(date.getSeconds())
-  );
-}
-
-// Signature request iPaymu v2:
-//   String to Sign = Method + ":" + VA + ":" + SHA256(bodyJson) + ":" + ApiKey
-//   Signature      = HMAC-SHA256(String to Sign, ApiKey)
-function buildIpaymuRequestSignature(method, va, apiKey, bodyJson) {
-  const bodyHash = crypto.createHash('sha256').update(bodyJson).digest('hex');
-  const stringToSign = `${method}:${va}:${bodyHash}:${apiKey}`;
-  return crypto.createHmac('sha256', apiKey).update(stringToSign).digest('hex');
-}
-
-// Normalisasi payload callback sesuai dokumentasi resmi iPaymu sebelum validasi signature
-function normalizeIpaymuCallbackData(rawData) {
-  const result = {};
-  for (const key of Object.keys(rawData)) {
-    const val = rawData[key];
-    if (key === 'signature') continue; // field signature tidak ikut dihitung
-    if (key === 'is_escrow') {
-      result[key] = val === 'true' || val === '1' || val === 1 || val === true;
-    } else if (['trx_id', 'status_code', 'transaction_status_code', 'paid_off'].includes(key)) {
-      const parsed = parseInt(val, 10);
-      result[key] = Number.isNaN(parsed) ? 0 : parsed;
-    } else if (key === 'additional_info') {
-      result[key] = val === '[]' ? [] : val;
-    } else {
-      result[key] = String(val);
-    }
-  }
-  if (!Object.prototype.hasOwnProperty.call(result, 'additional_info')) {
-    result['additional_info'] = [];
-  }
-  return result;
-}
-
-// Urutkan key A-Z (meniru ksort milik PHP)
-function sortObjectKeysAlphabetically(obj) {
-  return Object.keys(obj)
-    .sort((a, b) => a.localeCompare(b))
-    .reduce((acc, key) => {
-      acc[key] = obj[key];
-      return acc;
-    }, {});
-}
-
-// Validasi header X-Signature callback: HMAC-SHA256(json ternormalisasi, secret = Nomor VA)
-function isValidIpaymuCallbackSignature(rawData, receivedSignature, va) {
-  if (!receivedSignature) return false;
-  const sorted = sortObjectKeysAlphabetically(normalizeIpaymuCallbackData(rawData));
-  let jsonBody = JSON.stringify(sorted);
-  jsonBody = jsonBody.replace(/\//g, '\\/');
-  const expected = crypto.createHmac('sha256', va).update(jsonBody).digest('hex');
-  const expectedBuf = Buffer.from(expected, 'utf8');
-  const receivedBuf = Buffer.from(String(receivedSignature), 'utf8');
-  if (expectedBuf.length !== receivedBuf.length) return false;
-  return crypto.timingSafeEqual(expectedBuf, receivedBuf);
-}
-
-// Buat sesi pembayaran Redirect di iPaymu -> { sessionId, paymentUrl }
-async function createIpaymuPaymentSession({ referenceId, items, buyer, fallbackOrigin }) {
-  const { baseUrl, va, apiKey, siteUrl, notifyUrl, isProduction } = await getIpaymuConfig();
-
-  // URL toko untuk returnUrl/cancelUrl: dari Setting admin, fallback ke origin request
-  const appUrl = siteUrl || fallbackOrigin || '';
-  if (!appUrl) {
-    const paymentError = new Error('URL Website Toko belum diatur. Isi di Admin > Setting > Payment Gateway.');
-    paymentError.isPaymentError = true;
-    throw paymentError;
-  }
-
-  const body = {
-    product: items.map((item) => item.product_name),
-    qty: items.map((item) => String(item.quantity)),
-    price: items.map((item) => String(Math.round(Number(item.price)))),
-    description: items.map((item) => `${item.variant_size || '-'} / ${item.variant_color || '-'}${item.sku ? ` (${item.sku})` : ''}`),
-    returnUrl: `${appUrl}/order/${referenceId}`,
-    notifyUrl: notifyUrl || `${appUrl}/api/ipaymu/callback`,
-    cancelUrl: `${appUrl}/order/${referenceId}?payment=cancelled`,
-    referenceId,
-    buyerName: buyer.name,
-    buyerEmail: buyer.email || '',
-    buyerPhone: buyer.phone,
-    expired: 24, // jam
-  };
-
-  const bodyJson = JSON.stringify(body);
-  const signature = buildIpaymuRequestSignature('POST', va, apiKey, bodyJson);
-
-  let response;
-  try {
-    response = await fetch(`${baseUrl}/payment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        va,
-        signature,
-        timestamp: formatIpaymuTimestamp(),
-      },
-      body: bodyJson,
-      signal: AbortSignal.timeout(60000),
-    });
-  } catch (networkError) {
-    console.error(
-      'iPaymu fetch error:',
-      networkError.name,
-      networkError.message,
-      networkError.cause ? `| cause: ${networkError.cause.message}` : ''
-    );
-    const paymentError = new Error('Tidak dapat menghubungi iPaymu. Periksa koneksi internet server.');
-    paymentError.isPaymentError = true;
-    throw paymentError;
-  }
-
-  const result = await response.json().catch(() => null);
-  // Log ringkas respons iPaymu untuk diagnosis via tab Log admin (tanpa apiKey)
-  console.error('iPaymu payment response:', JSON.stringify({
-    httpStatus: response.status,
-    ipaymuStatus: result ? result.Status : null,
-    ipaymuMessage: result ? result.Message : null,
-    baseUrl,
-    env: isProduction ? 'production' : 'sandbox',
-    vaLength: (va || '').length,
-    vaPrefix: (va || '').slice(0, 4),
-    referenceId,
-  }));
-  if (!result || Number(result.Status) !== 200 || !result.Data || !result.Data.Url) {
-    const paymentError = new Error(
-      result && result.Message ? result.Message : 'Gagal membuat sesi pembayaran di iPaymu'
-    );
-    paymentError.isPaymentError = true;
-    throw paymentError;
-  }
-
-  return {
-    sessionId: result.Data.SessionID || null,
-    paymentUrl: result.Data.Url,
-  };
 }
 
 // Sesi pembayaran Tripay (closed payment):
@@ -1555,14 +1358,14 @@ const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed',
 
 // --- ORDERS ROUTES ---
 
-// POST /api/orders (Public) - buat pesanan + sesi pembayaran di gateway aktif (iPaymu/Tripay)
+// POST /api/orders (Public) - buat pesanan + sesi pembayaran Tripay
 app.post('/api/orders', orderLimiter, async (req, res) => {
-  const activeGateway = await getActivePaymentGateway();
-  const isGatewayConfigured = activeGateway === 'tripay' ? await isTripayConfigured() : await isIpaymuConfigured();
+  const activeGateway = 'tripay';
+  const isGatewayConfigured = await isTripayConfigured();
   if (!isGatewayConfigured) {
     return res.status(503).json({
       success: false,
-      message: `Payment gateway ${activeGateway === 'tripay' ? 'Tripay' : 'iPaymu'} belum dikonfigurasi. Lengkapi di Admin > Payment Gateway.`,
+      message: 'Payment gateway Tripay belum dikonfigurasi. Lengkapi di Admin > Payment Gateway.',
     });
   }
 
@@ -1677,17 +1480,14 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
       );
     }
 
-    // Buat sesi pembayaran di gateway aktif; kalau gagal, seluruh transaksi di-rollback
+    // Buat sesi pembayaran Tripay; kalau gagal, seluruh transaksi di-rollback
     const paymentPayload = {
       referenceId,
       items: orderItems,
       buyer: { name: cleanName, phone: cleanPhone, email: cleanEmail },
       fallbackOrigin: getRequestOrigin(req),
     };
-    const payment =
-      activeGateway === 'tripay'
-        ? await createTripayPaymentSession(paymentPayload)
-        : await createIpaymuPaymentSession(paymentPayload);
+    const payment = await createTripayPaymentSession(paymentPayload);
 
     await connection.query('UPDATE orders SET payment_session_id = ?, payment_url = ? WHERE id = ?', [
       payment.sessionId,
@@ -1722,75 +1522,6 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
     });
   } finally {
     connection.release();
-  }
-});
-
-// POST /api/ipaymu/callback (Public) - webhook notifikasi pembayaran dari iPaymu
-app.post('/api/ipaymu/callback', callbackLimiter, async (req, res) => {
-  const { va } = await getIpaymuConfig();
-  const rawData = req.body || {};
-  const receivedSignature = req.headers['x-signature'];
-
-  try {
-    if (!va) {
-      console.error('iPaymu callback: Payment gateway belum dikonfigurasi di Setting admin, signature tidak dapat divalidasi');
-      return res.status(400).send('Invalid Signature');
-    }
-    if (!isValidIpaymuCallbackSignature(rawData, receivedSignature, va)) {
-      console.warn('iPaymu callback: signature tidak valid');
-      return res.status(400).send('Invalid Signature');
-    }
-
-    const referenceId = rawData.referenceId || rawData.reference_id;
-    if (!referenceId) {
-      return res.status(200).json({ status: 'OK', message: 'Callback tanpa reference_id diabaikan' });
-    }
-
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-
-      const [orders] = await connection.query('SELECT * FROM orders WHERE reference_id = ? FOR UPDATE', [referenceId]);
-      if (orders.length === 0) {
-        await connection.rollback();
-        return res.status(200).json({ status: 'OK', message: 'Pesanan tidak ditemukan, diabaikan' });
-      }
-
-      const order = orders[0];
-      const statusCode = parseInt(rawData.status_code ?? rawData.transaction_status_code ?? 0, 10);
-      const statusText = String(rawData.status || '').toLowerCase();
-
-      if (statusCode === 1 || statusText === 'berhasil') {
-        // Idempotent: jangan proses ulang kalau sudah paid
-        if (order.status !== 'paid') {
-          await connection.query(
-            "UPDATE orders SET status = 'paid', paid_at = NOW(), ipaymu_trx_id = ?, payment_channel = ? WHERE id = ?",
-            [
-              rawData.trx_id !== undefined && rawData.trx_id !== null ? String(rawData.trx_id) : null,
-              rawData.channel !== undefined && rawData.channel !== null ? String(rawData.channel) : null,
-              order.id,
-            ]
-          );
-          await applyOrderStockReduction(connection, order.id);
-        }
-      } else if (statusCode === -2 || statusText === 'expired') {
-        if (order.status === 'pending') {
-          await connection.query("UPDATE orders SET status = 'expired' WHERE id = ?", [order.id]);
-        }
-      }
-      // status_code 0 / pending: tidak ada perubahan
-
-      await connection.commit();
-      res.status(200).json({ status: 'OK' });
-    } catch (innerError) {
-      await connection.rollback();
-      throw innerError;
-    } finally {
-      connection.release();
-    }
-  } catch (error) {
-    console.error('iPaymu callback error:', error);
-    res.status(500).json({ status: 'ERROR', message: 'Gagal memproses callback' });
   }
 });
 
@@ -1845,7 +1576,7 @@ app.post('/api/tripay/callback', callbackLimiter, async (req, res) => {
 
       if (status === 'PAID') {
         // Idempotent: jangan proses ulang kalau sudah paid.
-        // Kolom ipaymu_trx_id dipakai menyimpan ID transaksi gateway aktif (iPaymu trx_id / Tripay reference).
+        // Kolom ipaymu_trx_id menyimpan reference Tripay (nama kolom historis, dipertahankan agar data lama tetap terbaca).
         if (order.status !== 'paid') {
           await connection.query(
             "UPDATE orders SET status = 'paid', paid_at = NOW(), ipaymu_trx_id = ?, payment_channel = ? WHERE id = ?",

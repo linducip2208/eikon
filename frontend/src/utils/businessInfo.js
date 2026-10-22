@@ -2,7 +2,7 @@
 // dan halaman kebijakan. Nilai diambil dari setting admin (tabel settings);
 // nilai default dipakai sebagai fallback bila setting belum diisi.
 export const BUSINESS_DEFAULTS = {
-  address: "Bekasi City, West Java, Indonesia",
+  address: "Jl. Kasuari 1 No. 167, Jaticempaka, Pondok Gede, Bekasi",
   email: "ekonindonesiajaya@gmail.com",
   adminPhone: "087753427090",
   whatsappNumber: "6287865407492",
