@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "http://103.247.8.218:5000/api/$1"
+      "destination": "http://216.198.79.1:5000/api/$1"
     },
     {
       "source": "/uploads-elkon/(.*)",
-      "destination": "http://103.247.8.218:5000/uploads-elkon/$1"
+      "destination": "http://216.198.79.1:5000/uploads-elkon/$1"
     },
     {
       "source": "/(.*)",
