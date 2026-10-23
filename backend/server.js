@@ -2193,6 +2193,9 @@ app.put('/api/orders/:id/status', verifyToken, async (req, res) => {
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err && err.message ? err.message : err);
+  if (err && (err.type === 'entity.parse.failed' || err.status === 400)) {
+    return res.status(400).json({ success: false, message: 'Format data tidak valid' });
+  }
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ success: false, message: 'Ukuran file maksimal 5MB' });
