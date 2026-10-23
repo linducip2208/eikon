@@ -6,9 +6,10 @@ import axios from "axios";
 // Prioritas:
 // 1. VITE_API_URL — override manual (dipakai `npm run dev` via frontend/.env*)
 // 2. Hostname satu domain (lokal + domain test) -> "/api" relatif, ikut domain aktif
-// 3. Hostname lain (mis. www.eliteikon.com) -> PRODUCTION_API_URL di bawah
+// 3. Hostname lain (production) -> PRODUCTION_API_URL di bawah (backend langsung,
+//    tanpa lewat proxy — backend tinggal di balik base path /elkon)
 const LOCAL_HOSTNAMES = ["eikon.test", "localhost", "127.0.0.1", "elkon.whitelabel.co.id"];
-const PRODUCTION_API_URL = "https://www.eliteikon.com/api";
+const PRODUCTION_API_URL = "https://api.kingcreativestudio.my.id/elkon/api";
 
 const resolveApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;

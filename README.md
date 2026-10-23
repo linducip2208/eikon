@@ -73,19 +73,24 @@ Catatan:
 - Tab **Pesanan** untuk mengelola order (search, filter status, update status pengiriman).
 - Tab **Log** untuk melihat 100 baris log server terakhir langsung dari browser (tanpa akses terminal), lengkap dengan filter level, pencarian, auto-refresh, dan unduh `.txt` — berguna terutama saat aplikasi dipasang di hosting. Log juga tersimpan di `backend/logs/server.log` (rotasi otomatis di 1 MB).
 
-## Deploy ke Production (pull-only)
+## Deploy ke Production
 
-Production: **https://www.eliteikon.com** (frontend) + **https://www.eliteikon.com/api** (backend Express, satu domain via reverse proxy `/api` → Node :5000).
+Production: **https://www.eliteikon.com** (frontend, di Vercel) + **https://api.kingcreativestudio.my.id/elkon/api**
+(backend Express di balik base path `/elkon`). Frontend memanggil API langsung ke alamat backend tersebut
+(`frontend/src/utils/api.js` — tidak lewat proxy Vercel).
 
-Alur deploy: build di lokal → ikutkan ke git → di server cukup `git pull` (tidak perlu Node/npm di server untuk frontend).
+Alur deploy:
+- Frontend: push ke `main` → Vercel redeploy otomatis (hasil `npm run build` lokal ikut di-commit ke
+  `frontend/dist` sesuai aturan repo, Vercel juga build sendiri dari source).
+- Backend: `git pull` + restart Node di mesin backend.
 
 ```bash
 # 1. Di lokal: build lalu commit + push (folder frontend/dist ikut ter-commit)
 cd frontend && npm run build
 cd .. && git add -A && git commit -m "Update" && git push
 
-# 2. Di server production (sekali saja jika belum ada repo):
-#    git clone https://github.com/linducip2208/eikon.git
+# 2. Di server backend (https://api.kingcreativestudio.my.id/elkon):
+#    git clone <repo>  (sekali saja jika belum ada)
 git pull
 
 # 3. Migrasi database yang belum dijalankan (lihat bagian File database)
@@ -107,7 +112,10 @@ Setelah deploy, isi dari dashboard admin:
 
 - Tab **Setting** → **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
 - Tab **Setting** → **Akun Admin**: ubah nama, email login, dan password admin (wajib tahu password lama; setelah ganti password diminta login ulang). Lakukan ini pertama kali untuk mengganti password default `admin123`.
-- Tab **Payment Gateway** (Tripay): lengkapi Merchant Code, API Key, Private Key, Channel, dan isi URL Website Toko = `https://eliteikon.com`.
+- Tab **Payment Gateway** (Tripay): lengkapi Merchant Code, API Key, Private Key, Channel, dan isi
+  URL Callback Tripay = `https://api.kingcreativestudio.my.id/elkon/api/tripay/callback`
+  (kolom URL Callback — jangan dikosongkan di production karena default memakai domain frontend).
+  URL Website Toko = `https://eliteikon.com`.
 - Tab **Payment Gateway → PayPal**: lengkapi Client ID, Secret, kurs IDR→USD, dan (opsional) Webhook ID. Atur saklar tampil per gateway bila salah satunya ingin disembunyikan dari checkout.
 
 Catatan: document root `eliteikon.com` diarahkan ke `frontend/dist` (atau copy isi folder tersebut). `frontend/dist` sengaja ikut git supaya server tidak butuh build sendiri.
@@ -163,7 +171,7 @@ langsung aktif tanpa restart server):
 - **Kurs IDR → USD**: PayPal tidak mendukung IDR, total belanja dikonversi ke USD memakai kurs ini
   (default `16000`, dibulatkan ke atas per sen).
 - **Webhook ID** (opsional): daftarkan webhook di dashboard PayPal ke
-  `{URL Website Toko}/api/paypal/webhook` (event `CHECKOUT.ORDER.APPROVED` +
+  `https://api.kingcreativestudio.my.id/elkon/api/paypal/webhook` (event `CHECKOUT.ORDER.APPROVED` +
   `PAYMENT.CAPTURE.COMPLETED`), lalu isi Webhook ID agar signature terverifikasi. Tanpa Webhook ID
   pun tetap aman: server membuktikan setiap event dengan membaca order langsung dari API PayPal.
 - Saklar **Tampil di Checkout** per gateway: opsi yang kredensialnya belum lengkap otomatis
