@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { request } from "../utils/request";
 import { API_ENDPOINTS } from "../utils/endpoints";
@@ -23,10 +23,13 @@ export default function OrderStatus() {
   const { referenceId } = useParams();
   const [searchParams] = useSearchParams();
   const paymentCancelled = searchParams.get("payment") === "cancelled";
+  const paypalReturn = searchParams.get("paypal") === "return";
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const captureAttemptedRef = useRef(false);
 
   const fetchOrder = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -53,6 +56,23 @@ export default function OrderStatus() {
     const timer = setInterval(() => fetchOrder(true), 5000);
     return () => clearInterval(timer);
   }, [order, fetchOrder]);
+
+  // Kembalian dari PayPal (?paypal=return): minta server capture & verifikasi ke API PayPal
+  useEffect(() => {
+    if (!paypalReturn || !order || order.status !== "pending") return;
+    if (order.payment_provider !== "paypal" || captureAttemptedRef.current) return;
+    captureAttemptedRef.current = true;
+    setCapturing(true);
+    request
+      .post(API_ENDPOINTS.PAYMENT.PAYPAL_CAPTURE, { reference_id: referenceId })
+      .catch(() => {
+        // Gagal capture (mis. belum approve / webhook sudah menangani) — polling tetap jalan
+      })
+      .finally(() => {
+        setCapturing(false);
+        fetchOrder(true);
+      });
+  }, [paypalReturn, order, referenceId, fetchOrder]);
 
   if (loading) {
     return (
@@ -123,8 +143,16 @@ export default function OrderStatus() {
           {isPending && (
             <>
               <p className="text-xs text-stone-500 leading-relaxed">
-                Pesanan Anda sudah tercatat. Selesaikan pembayaran melalui halaman pembayaran resmi (Virtual Account bank, QRIS, atau e-wallet). Status di halaman ini akan otomatis berubah setelah pembayaran terkonfirmasi.
+                {order.payment_provider === "paypal"
+                  ? "Pesanan Anda sudah tercatat. Selesaikan pembayaran di halaman resmi PayPal (dalam USD). Status di halaman ini akan otomatis berubah setelah pembayaran terkonfirmasi."
+                  : "Pesanan Anda sudah tercatat. Selesaikan pembayaran melalui halaman pembayaran resmi (Virtual Account bank, QRIS, atau e-wallet). Status di halaman ini akan otomatis berubah setelah pembayaran terkonfirmasi."}
               </p>
+              {capturing && (
+                <div className="flex items-center gap-2 border border-stone-200 bg-stone-50 px-4 py-3 text-xs text-stone-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Mengonfirmasi pembayaran PayPal Anda...
+                </div>
+              )}
               {order.payment_url ? (
                 <button
                   onClick={() => {

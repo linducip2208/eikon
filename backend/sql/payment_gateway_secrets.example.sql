@@ -5,7 +5,7 @@
 --   3. Import sekali per server:  mysql -u <user> -p <nama_db> < backend/sql/payment_gateway_secrets.sql
 -- File ini (yang .example) sengaja berisi placeholder supaya kunci asli tidak pernah masuk git.
 
--- ===== Tripay (satu-satunya gateway) =====
+-- ===== Tripay =====
 -- INSERT INTO settings (key_name, value_text) VALUES
 -- ('tripay_env', 'sandbox'),
 -- ('tripay_merchant_code', 'GANTI_DENGAN_MERCHANT_CODE_TRIPAY'),
@@ -15,4 +15,13 @@
 -- ('tripay_expired_minutes', '60'),
 -- ('tripay_callback_url', ''),
 -- ('site_url', 'GANTI_DENGAN_URL_TOKO_MISAL_https://eliteikon.com')
+-- ON DUPLICATE KEY UPDATE value_text=VALUES(value_text);
+
+-- ===== PayPal (REST API: Client ID + Secret + Webhook ID dari developer.paypal.com) =====
+-- INSERT INTO settings (key_name, value_text) VALUES
+-- ('paypal_env', 'sandbox'),
+-- ('paypal_client_id', 'GANTI_DENGAN_CLIENT_ID_PAYPAL'),
+-- ('paypal_secret', 'GANTI_DENGAN_SECRET_PAYPAL'),
+-- ('paypal_webhook_id', 'GANTI_DENGAN_WEBHOOK_ID_PAYPAL_OPSIONAL'),
+-- ('paypal_rate', '16000')
 -- ON DUPLICATE KEY UPDATE value_text=VALUES(value_text);

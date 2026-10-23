@@ -7,12 +7,12 @@ export const FAQ_ITEMS = [
   {
     question: "Bagaimana cara memesan produk di Eliteikon?",
     answer:
-      "Pilih produk di halaman Belanja, tentukan ukuran dan warna yang diinginkan, lalu klik Tambah ke Keranjang. Buka keranjang, isi data penerima (nama, nomor telepon, email, dan alamat lengkap), kemudian klik Lanjut ke Pembayaran. Anda akan diarahkan ke halaman pembayaran Tripay untuk menyelesaikan transaksi.",
+      "Pilih produk di halaman Belanja, tentukan ukuran dan warna yang diinginkan, lalu klik Tambah ke Keranjang. Buka keranjang, isi data penerima (nama, nomor telepon, email, dan alamat lengkap), pilih metode pembayaran (Tripay atau PayPal), kemudian klik Lanjut ke Pembayaran. Anda akan diarahkan ke halaman pembayaran resmi untuk menyelesaikan transaksi.",
   },
   {
     question: "Metode pembayaran apa saja yang tersedia?",
     answer:
-      "Semua pembayaran diproses secara aman melalui Tripay, payment gateway yang terdaftar dan diawasi Bank Indonesia. Tersedia Virtual Account (BCA, BNI, BRI, Mandiri, dan bank lainnya), QRIS (semua aplikasi e-wallet dan m-banking), serta e-wallet seperti GoPay, OVO, DANA, dan ShopeePay.",
+      "Tersedia dua pilihan pembayaran. (1) Tripay — payment gateway yang terdaftar dan diawasi Bank Indonesia: Virtual Account (BCA, BNI, BRI, Mandiri, dan bank lainnya), QRIS (semua aplikasi e-wallet dan m-banking), serta e-wallet seperti GoPay, OVO, DANA, dan ShopeePay, dibayar dalam Rupiah. (2) PayPal — kartu dan saldo PayPal, dibayar dalam USD (total Rupiah dikonversi otomatis memakai kurs yang tercantum saat checkout).",
   },
   {
     question: "Berapa lama batas waktu pembayaran?",
@@ -61,7 +61,7 @@ export const REFUND_SECTIONS = [
     heading: "Ketentuan Umum",
     paragraphs: [
       "Kebijakan ini mengatur pembatalan pesanan, penukaran produk, dan pengembalian dana (refund) untuk seluruh transaksi di Eliteikon.",
-      "Seluruh pembayaran di situs ini diproses melalui Tripay, sehingga pengembalian dana dilakukan melalui transfer bank ke rekening pemesan.",
+      "Seluruh pembayaran di situs ini diproses melalui Tripay atau PayPal, sehingga pengembalian dana dilakukan melalui transfer bank ke rekening pemesan (untuk PayPal dapat pula dikembalikan ke akun PayPal pemesan).",
     ],
   },
   {
@@ -96,7 +96,7 @@ export const REFUND_SECTIONS = [
     heading: "Metode & Waktu Pengembalian Dana",
     paragraphs: [
       "Dana dikembalikan melalui transfer bank ke rekening atas nama pemesan, maksimal 7–14 hari kerja setelah pengajuan disetujui.",
-      "Untuk pembayaran melalui Virtual Account, QRIS, atau e-wallet Tripay, dana dikembalikan melalui transfer bank ke rekening yang Anda cantumkan.",
+      "Untuk pembayaran melalui Virtual Account, QRIS, atau e-wallet Tripay, dana dikembalikan melalui transfer bank ke rekening yang Anda cantumkan. Untuk pembayaran PayPal, dana dikembalikan ke akun PayPal Anda.",
       "Biaya administrasi bank (jika ada) menjadi tanggungan pembeli.",
     ],
   },
@@ -156,8 +156,8 @@ export const TERMS_SECTIONS = [
   {
     heading: "Pembayaran",
     list: [
-      "Seluruh pembayaran diproses melalui Tripay: Virtual Account bank, QRIS, dan e-wallet.",
-      "Verifikasi pembayaran dilakukan otomatis oleh sistem Tripay dan tercermin pada halaman status pesanan.",
+      "Seluruh pembayaran diproses melalui Tripay (Virtual Account bank, QRIS, e-wallet) atau PayPal (kartu & saldo PayPal dalam USD).",
+      "Verifikasi pembayaran dilakukan otomatis oleh sistem payment gateway dan tercermin pada halaman status pesanan.",
       "Batas waktu pembayaran adalah 24 jam sejak pesanan dibuat; setelah itu pesanan kedaluwarsa secara otomatis.",
       "Kami tidak pernah meminta pembayaran di luar kanal resmi yang tercantum di situs ini.",
     ],
@@ -252,8 +252,8 @@ export const PRIVACY_SECTIONS = [
   {
     heading: "Pembayaran & Pihak Ketiga",
     list: [
-      "Seluruh pembayaran diproses melalui Tripay, payment gateway yang terdaftar dan diawasi Bank Indonesia.",
-      "Data pembayaran (Virtual Account, QRIS, atau e-wallet) diproses langsung oleh Tripay sesuai kebijakan privasi Tripay. Kami tidak menyimpan data kartu, PIN, atau kredensial perbankan Anda.",
+      "Seluruh pembayaran diproses melalui Tripay (payment gateway yang terdaftar dan diawasi Bank Indonesia) atau PayPal.",
+      "Data pembayaran (Virtual Account, QRIS, e-wallet, atau akun PayPal) diproses langsung oleh penyedia pembayaran sesuai kebijakan privasi masing-masing. Kami tidak menyimpan data kartu, PIN, atau kredensial perbankan Anda.",
       "Data dibagikan kepada pihak ketiga hanya sebatas keperluan layanan: jasa kurir (nama, telepon, dan alamat pengiriman) serta penyedia pembayaran.",
     ],
   },

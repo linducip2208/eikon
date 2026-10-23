@@ -41,6 +41,10 @@ export const API_ENDPOINTS = {
     STATS: "/admin/stats",
     LOGS: "/admin/logs",
   },
+  PAYMENT: {
+    METHODS: "/payment-methods",
+    PAYPAL_CAPTURE: "/paypal/capture",
+  },
   UPLOAD: "/upload",
   UPLOAD_MULTIPLE: "/upload-multiple",
 };

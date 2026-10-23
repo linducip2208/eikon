@@ -1,9 +1,15 @@
-import React, { useState } from "react";
-import { X, Trash2, Plus, Minus, CreditCard, ShoppingBag, Loader2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Trash2, Plus, Minus, CreditCard, ShoppingBag, Loader2, Wallet, Landmark } from "lucide-react";
 import { getImageUrl } from "../utils/api";
 import { request } from "../utils/request";
 import { API_ENDPOINTS } from "../utils/endpoints";
 import toast from "react-hot-toast";
+
+const formatUSD = (idr, rate) => {
+  if (!rate || rate <= 0) return "";
+  const usd = Math.ceil((Number(idr) / rate) * 100) / 100;
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(usd);
+};
 
 export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -16,6 +22,39 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
     phone: "",
     notes: "",
   });
+  const [paymentMethod, setPaymentMethod] = useState("tripay");
+  const [paymentMethods, setPaymentMethods] = useState({ tripay: true, paypal: false, rate: 16000, currency: "USD" });
+  const [methodsLoading, setMethodsLoading] = useState(false);
+
+  // Muat gateway yang aktif saat masuk ke form checkout
+  useEffect(() => {
+    if (!isCheckingOut) return;
+    let cancelled = false;
+    setMethodsLoading(true);
+    request
+      .get(API_ENDPOINTS.PAYMENT.METHODS)
+      .then((res) => {
+        if (cancelled || !res.success) return;
+        const tripay = Boolean(res.data?.tripay?.enabled);
+        const paypal = Boolean(res.data?.paypal?.enabled);
+        setPaymentMethods({
+          tripay,
+          paypal,
+          rate: Number(res.data?.paypal?.rate) || 16000,
+          currency: res.data?.paypal?.currency || "USD",
+        });
+        setPaymentMethod(tripay ? "tripay" : "paypal");
+      })
+      .catch(() => {
+        // Gagal memuat -> tampilkan Tripay saja, backend tetap yang memvalidasi
+      })
+      .finally(() => {
+        if (!cancelled) setMethodsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCheckingOut]);
 
   if (!isOpen) return null;
 
@@ -58,6 +97,7 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
         address: shippingInfo.address,
         city: shippingInfo.city,
         notes: shippingInfo.notes,
+        payment_method: paymentMethod,
         items: cartItems.map((item) => ({
           variant_id: item.variant.id,
           quantity: item.quantity,
@@ -201,8 +241,76 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
                     </div>
                   </div>
 
+                  <h3 className="font-serif text-base text-stone-900">Metode Pembayaran</h3>
+
+                  {methodsLoading ? (
+                    <div className="flex items-center justify-center py-4 border border-stone-100 bg-white">
+                      <Loader2 className="h-5 w-5 animate-spin text-stone-400" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {paymentMethods.tripay && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("tripay")}
+                          className={`flex flex-col items-start gap-1 border p-4 text-left transition-all ${
+                            paymentMethod === "tripay"
+                              ? "border-stone-900 bg-stone-900 text-white"
+                              : "border-stone-200 bg-white text-stone-700 hover:border-stone-400"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+                            <Landmark className="h-4 w-4" />
+                            Tripay
+                          </span>
+                          <span className={`text-[10px] leading-relaxed ${paymentMethod === "tripay" ? "text-stone-300" : "text-stone-400"}`}>
+                            VA bank, QRIS, e-wallet, gerai retail (IDR)
+                          </span>
+                        </button>
+                      )}
+                      {paymentMethods.paypal && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("paypal")}
+                          className={`flex flex-col items-start gap-1 border p-4 text-left transition-all ${
+                            paymentMethod === "paypal"
+                              ? "border-stone-900 bg-stone-900 text-white"
+                              : "border-stone-200 bg-white text-stone-700 hover:border-stone-400"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+                            <Wallet className="h-4 w-4" />
+                            PayPal
+                          </span>
+                          <span className={`text-[10px] leading-relaxed ${paymentMethod === "paypal" ? "text-stone-300" : "text-stone-400"}`}>
+                            Kartu &amp; saldo PayPal ({formatUSD(subtotal, paymentMethods.rate) || paymentMethods.currency})
+                          </span>
+                        </button>
+                      )}
+                      {!paymentMethods.tripay && !paymentMethods.paypal && (
+                        <p className="col-span-2 border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                          Semua metode pembayaran sedang nonaktif. Hubungi kami via WhatsApp untuk memesan.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-[11px] text-stone-400 leading-relaxed">
-                    Setelah menekan tombol di bawah, Anda akan diarahkan ke halaman pembayaran resmi (VA bank, QRIS, e-wallet).
+                    {paymentMethod === "paypal" ? (
+                      <>
+                        Anda akan diarahkan ke halaman resmi PayPal untuk membayar{" "}
+                        <span className="font-semibold text-stone-600">
+                          {formatUSD(subtotal, paymentMethods.rate)} {paymentMethods.currency}
+                        </span>{" "}
+                        (dikonversi dari {formatPrice(subtotal)}). Status pesanan ter-update otomatis setelah pembayaran
+                        disetujui.
+                      </>
+                    ) : (
+                      <>
+                        Setelah menekan tombol di bawah, Anda akan diarahkan ke halaman pembayaran resmi (VA bank, QRIS,
+                        e-wallet).
+                      </>
+                    )}
                   </p>
 
                   <button

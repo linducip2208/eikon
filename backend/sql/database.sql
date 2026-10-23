@@ -160,6 +160,7 @@ INSERT INTO settings (key_name, value_text) VALUES
 ON DUPLICATE KEY UPDATE value_text=value_text;
 
 -- Catatan: kredensial Tripay (tripay_env, tripay_merchant_code, tripay_api_key,
--- tripay_private_key, tripay_channel, tripay_callback_url) dan site_url TIDAK
--- di-seed karena bersifat rahasia dan berbeda per environment.
--- Isi dari dashboard admin: menu Payment Gateway (Tripay).
+-- tripay_private_key, tripay_channel, tripay_callback_url), kredensial PayPal
+-- (paypal_env, paypal_client_id, paypal_secret, paypal_webhook_id, paypal_rate),
+-- dan site_url TIDAK di-seed karena bersifat rahasia dan berbeda per environment.
+-- Isi dari dashboard admin: menu Payment Gateway (Tripay / PayPal).

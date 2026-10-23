@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { request } from "../../utils/request";
 import { API_ENDPOINTS } from "../../utils/endpoints";
+import AdminPaypal from "./AdminPaypal";
 import {
   Loader2,
   Save,
@@ -44,10 +45,16 @@ function SecretInput({ value, onChange, placeholder, visible, onToggle, title })
 export default function AdminPaymentGateway() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [subTab, setSubTab] = useState("tripay");
+
+  // Saklar tampil di checkout (per gateway)
+  const [tripayEnabled, setTripayEnabled] = useState(true);
+  const [paypalEnabled, setPaypalEnabled] = useState(true);
+  const [toggling, setToggling] = useState(false);
 
   const [siteUrl, setSiteUrl] = useState("");
 
-  // --- Tripay (satu-satunya gateway) ---
+  // --- Tripay ---
   const [tripayEnv, setTripayEnv] = useState("sandbox");
   const [tripayMerchantCode, setTripayMerchantCode] = useState("");
   const [tripayApiKey, setTripayApiKey] = useState("");
@@ -68,6 +75,9 @@ export default function AdminPaymentGateway() {
       if (res.success && res.data) {
         const data = res.data;
         setSiteUrl(data.site_url || window.location.origin);
+
+        setTripayEnabled((data.tripay_enabled ?? "1") !== "0");
+        setPaypalEnabled((data.paypal_enabled ?? "1") !== "0");
 
         setTripayEnv((data.tripay_env || "sandbox").toLowerCase());
         setTripayMerchantCode(data.tripay_merchant_code || "");
@@ -95,6 +105,23 @@ export default function AdminPaymentGateway() {
 
   const cleanSiteUrl = siteUrl.trim().replace(/\/+$/, "");
   const callbackPreview = `${cleanSiteUrl || window.location.origin}/api/tripay/callback`;
+
+  const handleToggleGateway = async (key, nextValue) => {
+    setToggling(true);
+    try {
+      const res = await request.put(API_ENDPOINTS.SETTINGS.UPDATE, { [key]: nextValue ? "1" : "0" });
+      if (res.success) {
+        if (key === "tripay_enabled") setTripayEnabled(nextValue);
+        else setPaypalEnabled(nextValue);
+        toast.success(`Pembayaran ${key === "tripay_enabled" ? "Tripay" : "PayPal"} ${nextValue ? "diaktifkan" : "dinonaktifkan"}.`);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Gagal mengubah status gateway.");
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -157,6 +184,59 @@ export default function AdminPaymentGateway() {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      {/* Saklar gateway yang tampil di checkout */}
+      <div className="bg-white border border-stone-150 p-5 shadow-xs space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Tampil di Checkout</p>
+        <div className="flex flex-wrap gap-3">
+          <label className="inline-flex items-center gap-2 border border-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-stone-700 cursor-pointer hover:border-stone-400">
+            <input
+              type="checkbox"
+              checked={tripayEnabled}
+              disabled={toggling || loading}
+              onChange={(e) => handleToggleGateway("tripay_enabled", e.target.checked)}
+              className="h-4 w-4 accent-stone-900"
+            />
+            Tripay
+          </label>
+          <label className="inline-flex items-center gap-2 border border-stone-200 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-stone-700 cursor-pointer hover:border-stone-400">
+            <input
+              type="checkbox"
+              checked={paypalEnabled}
+              disabled={toggling || loading}
+              onChange={(e) => handleToggleGateway("paypal_enabled", e.target.checked)}
+              className="h-4 w-4 accent-stone-900"
+            />
+            PayPal
+          </label>
+        </div>
+        <p className="text-[10px] text-stone-400 leading-relaxed">
+          Gateway yang aktif dan kredensialnya lengkap akan muncul sebagai pilihan di checkout. Opsi yang
+          kredensialnya belum lengkap otomatis disembunyikan walau dicentang.
+        </p>
+      </div>
+
+      {/* Sub-tab Tripay | PayPal */}
+      <div className="flex items-center gap-1.5">
+        {( [
+          { value: "tripay", label: "Tripay" },
+          { value: "paypal", label: "PayPal" },
+        ] ).map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setSubTab(tab.value)}
+            className={`px-4 py-2 text-[11px] font-semibold uppercase tracking-wider border transition-all ${
+              subTab === tab.value
+                ? "border-stone-900 bg-stone-900 text-white"
+                : "border-stone-200 bg-white text-stone-500 hover:border-stone-400"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "tripay" && (
       <div className="bg-white border border-stone-150 p-8 shadow-xs space-y-6">
         <div className="space-y-1">
           <h3 className="font-serif text-lg font-light text-stone-900 uppercase tracking-widest flex items-center gap-2">
@@ -164,7 +244,7 @@ export default function AdminPaymentGateway() {
             Tripay
           </h3>
           <p className="text-xs text-stone-400">
-            Satu-satunya payment gateway yang dipakai checkout (VA bank, gerai retail, QRIS, e-wallet).
+            Satu-satunya payment gateway lokal yang dipakai checkout (VA bank, gerai retail, QRIS, e-wallet).
             Semua pengaturan tersimpan di database dan langsung aktif tanpa restart server.
           </p>
         </div>
@@ -359,6 +439,9 @@ export default function AdminPaymentGateway() {
           </form>
         )}
       </div>
+      )}
+
+      {subTab === "paypal" && <AdminPaypal />}
     </div>
   );
 }
