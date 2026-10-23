@@ -93,12 +93,17 @@ cd .. && git add -A && git commit -m "Update" && git push
 #    git clone <repo>  (sekali saja jika belum ada)
 git pull
 
-# 3. Migrasi database yang belum dijalankan (lihat bagian File database)
+# 3. Database — pilih SALAH SATU:
+# 3a. Server BARU (fresh install), urut persis seperti ini:
+mysql -u <user> -p <nama_db> < backend/sql/database.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_orders.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_settings.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_payment_gateway.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_tripay_only.sql
 mysql -u <user> -p <nama_db> < backend/sql/migration_paypal.sql
+mysql -u <user> -p <nama_db> < backend/sql/seed_catalog.sql
+# 3b. Server LAMA (update): hanya migrasi yang belum dijalankan
+#     (orders, settings, payment_gateway, tripay_only, paypal) — semua aman diulang.
 
 # 3b. Kredensial payment gateway (sekali per server — TIDAK ikut git):
 #     copy backend/sql/payment_gateway_secrets.example.sql menjadi
@@ -197,7 +202,8 @@ Konten halaman kebijakan berada di `frontend/src/data/legal.js`. Alamat, email, 
 
 ### File database (`backend/sql`)
 
-- `database.sql` — skema lengkap + seed untuk instalasi baru (admin, kategori, produk contoh, banner, settings termasuk info bisnis terbaru).
+- `database.sql` — skema dasar + seed contoh untuk instalasi baru (admin, kategori, produk contoh, banner, settings termasuk info bisnis terbaru). Belum termasuk tabel orders — lanjutkan dengan migrasi di bawah.
+- `seed_catalog.sql` — katalog production asli (produk, varian, banner, info bisnis; tanpa secret). Import SETELAH `database.sql` di server baru; menimpa produk contoh dengan data asli, aman diulang.
 - `migration_orders.sql` — tabel `orders` + `order_items` untuk database yang sudah berjalan.
 - `migration_settings.sql` — pengaturan info bisnis (`business_*`) untuk database yang sudah berjalan; aman diulang karena nilai yang sudah ada tidak ditimpa.
 - `migration_payment_gateway.sql` — default pengaturan Tripay non-rahasia (`tripay_env`, `tripay_channel`, `tripay_expired_minutes`); aman diulang, tidak menimpa nilai yang sudah ada.
