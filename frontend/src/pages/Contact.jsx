@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { request } from "../utils/request";
 import { API_ENDPOINTS } from "../utils/endpoints";
 import { Mail, Phone, MapPin, Send, Loader2, Globe } from "lucide-react";
@@ -37,7 +37,7 @@ export default function Contact({ settings }) {
         setEmail("");
         setMessage("");
       }
-    } catch (error) {
+    } catch {
       toast.dismiss(toastId);
     } finally {
       setLoading(false);

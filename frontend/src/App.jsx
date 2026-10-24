@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import toast from "react-hot-toast";
@@ -73,7 +73,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   
   // Settings state (containing whatsapp_number)
@@ -109,7 +109,7 @@ export default function App() {
           } else {
             localStorage.removeItem("elkon_token");
           }
-        } catch (error) {
+        } catch {
           localStorage.removeItem("elkon_token");
         }
       }

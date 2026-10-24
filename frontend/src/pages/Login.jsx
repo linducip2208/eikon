@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { request } from "../utils/request";
 import { API_ENDPOINTS } from "../utils/endpoints";
@@ -28,7 +28,7 @@ export default function Login({ onLoginSuccess }) {
         onLoginSuccess(res.user);
         navigate("/admin");
       }
-    } catch (error) {
+    } catch {
       toast.dismiss(toastId);
     } finally {
       setLoading(false);

@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import PageHero from "../components/PageHero";
 import PolicySections from "../components/PolicySections";

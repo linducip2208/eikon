@@ -1,4 +1,3 @@
-import React from "react";
 
 // Renderer bagian-bagian kebijakan (heading + paragraf/list) agar halaman
 // Refund & Syarat Ketentuan konsisten dan mudah dirawat.

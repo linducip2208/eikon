@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
 import { API_ENDPOINTS } from "../../utils/endpoints";
 import {
@@ -181,7 +181,7 @@ export default function AdminCategories({ onActionSuccess }) {
           <div className="relative transform overflow-hidden bg-white border border-stone-150 max-w-sm w-full p-6 text-left shadow-2xl transition-all">
             <h3 className="font-serif text-lg font-medium text-stone-900 uppercase tracking-wider">Konfirmasi Hapus</h3>
             <p className="mt-3 text-xs text-stone-550 leading-relaxed">
-              Apakah Anda yakin ingin menghapus kategori <span className="font-semibold text-stone-900">"{itemToDelete.name}"</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus kategori <span className="font-semibold text-stone-900">&quot;{itemToDelete.name}&quot;</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
             </p>
             <div className="mt-6 flex justify-end space-x-3">
               <button

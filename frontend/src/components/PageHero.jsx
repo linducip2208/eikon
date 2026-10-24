@@ -1,4 +1,3 @@
-import React from "react";
 
 // Header halaman statis (FAQ, kebijakan, kontak) dengan gaya konsisten.
 export default function PageHero({ eyebrow, title, subtitle }) {

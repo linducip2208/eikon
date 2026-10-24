@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import PageHero from "../components/PageHero";
 import SupportCTA from "../components/SupportCTA";

@@ -60,7 +60,7 @@ npm run build   # hasil ke folder dist
 ```
 
 Catatan:
-- Alamat API ditentukan **saat runtime** (`frontend/src/utils/api.js`): hostname lokal (`eikon.test`/`localhost`/`127.0.0.1`) → `/api` (diproxy Apache), hostname lain → API production. Satu hasil build berlaku untuk lokal maupun production.
+- Alamat API ditentukan **saat runtime** (`frontend/src/utils/api.js`): hostname lokal (`eikon.test`/`localhost`/`127.0.0.1`) → `/api` (diproxy Apache), selalu "/api" relatif satu domain. Satu hasil build berlaku untuk semua environment.
 - Hasil build (`frontend/dist`) **ikut di-commit ke git** — selalu jalankan `npm run build` sebelum commit (deploy production = `git pull`, lihat bagian Deploy).
 - Untuk development dengan hot-reload, tetap pakai `npm run dev` di `http://localhost:5173` (memakai `frontend/.env.development`).
 - Backend & MySQL harus jalan supaya `eikon.test` berfungsi penuh.
@@ -75,9 +75,9 @@ Catatan:
 
 ## Deploy ke Production
 
-Production: **https://www.eliteikon.com** (frontend, di Vercel) + **https://api.kingcreativestudio.my.id/elkon/api**
-(backend Express di balik base path `/elkon`). Frontend memanggil API langsung ke alamat backend tersebut
-(`frontend/src/utils/api.js` — tidak lewat proxy Vercel).
+Production satu domain: frontend + backend di domain yang sama
+(backend Express di domain yang sama). Frontend memanggil "/api" relatif
+(`frontend/src/utils/api.js`).
 
 Alur deploy:
 - Frontend: push ke `main` → Vercel redeploy otomatis (hasil `npm run build` lokal ikut di-commit ke
@@ -89,7 +89,7 @@ Alur deploy:
 cd frontend && npm run build
 cd .. && git add -A && git commit -m "Update" && git push
 
-# 2. Di server backend (https://api.kingcreativestudio.my.id/elkon):
+# 2. Di server (satu domain, frontend + backend):
 #    git clone <repo>  (sekali saja jika belum ada)
 git pull
 
@@ -118,7 +118,7 @@ Setelah deploy, isi dari dashboard admin:
 - Tab **Setting** → **Informasi Bisnis**: alamat lengkap, email, dan no. telepon admin.
 - Tab **Setting** → **Akun Admin**: ubah nama, email login, dan password admin (wajib tahu password lama; setelah ganti password diminta login ulang). Lakukan ini pertama kali untuk mengganti password default `admin123`.
 - Tab **Payment Gateway** (Tripay): lengkapi Merchant Code, API Key, Private Key, Channel, dan isi
-  URL Callback Tripay = `https://api.kingcreativestudio.my.id/elkon/api/tripay/callback`
+  URL Callback Tripay = `https://DOMAIN-ANDA/api/tripay/callback`
   (kolom URL Callback — jangan dikosongkan di production karena default memakai domain frontend).
   URL Website Toko = `https://eliteikon.com`.
 - Tab **Payment Gateway → PayPal**: lengkapi Client ID, Secret, kurs IDR→USD, dan (opsional) Webhook ID. Atur saklar tampil per gateway bila salah satunya ingin disembunyikan dari checkout.
@@ -176,7 +176,7 @@ langsung aktif tanpa restart server):
 - **Kurs IDR → USD**: PayPal tidak mendukung IDR, total belanja dikonversi ke USD memakai kurs ini
   (default `16000`, dibulatkan ke atas per sen).
 - **Webhook ID** (opsional): daftarkan webhook di dashboard PayPal ke
-  `https://api.kingcreativestudio.my.id/elkon/api/paypal/webhook` (event `CHECKOUT.ORDER.APPROVED` +
+  `https://DOMAIN-ANDA/api/paypal/webhook` (event `CHECKOUT.ORDER.APPROVED` +
   `PAYMENT.CAPTURE.COMPLETED`), lalu isi Webhook ID agar signature terverifikasi. Tanpa Webhook ID
   pun tetap aman: server membuktikan setiap event dengan membaca order langsung dari API PayPal.
 - Saklar **Tampil di Checkout** per gateway: opsi yang kredensialnya belum lengkap otomatis

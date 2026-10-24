@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { X, Trash2, Plus, Minus, CreditCard, ShoppingBag, Loader2, Wallet, Landmark } from "lucide-react";
 import { getImageUrl } from "../utils/api";
 import { request } from "../utils/request";
@@ -86,6 +86,18 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
       return;
     }
 
+    if (paymentMethod !== "tripay" && paymentMethod !== "paypal") {
+      toast.error("Pilih metode pembayaran Tripay atau PayPal.");
+      return;
+    }
+    if (paymentMethod === "tripay" && !paymentMethods.tripay) {
+      toast.error("Pembayaran Tripay sedang nonaktif.");
+      return;
+    }
+    if (paymentMethod === "paypal" && !paymentMethods.paypal) {
+      toast.error("Pembayaran PayPal sedang nonaktif.");
+      return;
+    }
     setIsSubmitting(true);
     const toastId = toast.loading("Membuat pesanan & menyiapkan pembayaran...");
 
@@ -112,7 +124,7 @@ export default function CartDrawer({ isOpen, onClose, cartItems, onUpdateQuantit
       }
 
       toast.error("Gagal membuat pesanan. Silakan coba lagi.", { id: toastId });
-    } catch (error) {
+    } catch {
       // Pesan error spesifik sudah ditampilkan oleh request helper (toast)
       toast.dismiss(toastId);
     } finally {

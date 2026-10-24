@@ -1,4 +1,3 @@
-import React from "react";
 import { Mail, MessageCircle } from "lucide-react";
 import { resolveBusinessInfo } from "../utils/businessInfo";
 import { formatPhoneDisplay, toWhatsAppLink } from "../utils/formatPhone";

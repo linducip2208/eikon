@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { request } from "../../utils/request";
 import { api } from "../../utils/api";
 import { API_ENDPOINTS } from "../../utils/endpoints";
@@ -95,6 +95,7 @@ export default function AdminProducts({ onActionSuccess }) {
   useEffect(() => {
     fetchCategories();
     fetchProducts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, selectedLimit]);
 
   // Debounced search trigger for products
@@ -567,7 +568,7 @@ export default function AdminProducts({ onActionSuccess }) {
           <div className="relative transform overflow-hidden bg-white border border-stone-150 max-w-sm w-full p-6 text-left shadow-2xl transition-all">
             <h3 className="font-serif text-lg font-medium text-stone-900 uppercase tracking-wider">Konfirmasi Hapus</h3>
             <p className="mt-3 text-xs text-stone-550 leading-relaxed">
-              Apakah Anda yakin ingin menghapus pakaian <span className="font-semibold text-stone-900">"{itemToDelete.name}"</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus pakaian <span className="font-semibold text-stone-900">&quot;{itemToDelete.name}&quot;</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
             </p>
             <div className="mt-6 flex justify-end space-x-3">
               <button

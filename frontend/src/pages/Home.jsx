@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { request } from "../utils/request";
 import { API_ENDPOINTS } from "../utils/endpoints";
@@ -37,7 +37,7 @@ export default function Home() {
   useEffect(() => {
     async function fetchBanners() {
       try {
-        const res = await request.get("/banners");
+        const res = await request.get(API_ENDPOINTS.BANNERS.LIST);
         if (res.success) {
           setBanners(res.data);
         }

@@ -1,4 +1,3 @@
-import React from "react";
 import PageHero from "../components/PageHero";
 import PolicySections from "../components/PolicySections";
 import SupportCTA from "../components/SupportCTA";

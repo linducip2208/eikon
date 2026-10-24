@@ -1,20 +1,14 @@
 import axios from "axios";
 
-// Alamat API ditentukan saat RUNTIME supaya satu hasil build bisa dipakai di
-// semua environment (lokal maupun production) — lihat README bagian Deploy.
-//
-// Prioritas:
-// 1. VITE_API_URL — override manual (dipakai `npm run dev` via frontend/.env*)
-// 2. Hostname satu domain (lokal + domain test) -> "/api" relatif, ikut domain aktif
-// 3. Hostname lain (production) -> PRODUCTION_API_URL di bawah (backend langsung,
-//    tanpa lewat proxy — backend tinggal di balik base path /elkon)
-const LOCAL_HOSTNAMES = ["eikon.test", "localhost", "127.0.0.1", "elkon.whitelabel.co.id"];
-const PRODUCTION_API_URL = "https://api.kingcreativestudio.my.id/elkon/api";
-
+// Alamat API selalu relatif satu domain ("/api") supaya satu hasil build
+// bisa dipakai di semua environment tanpa hardcode domain production.
+// - `npm run dev` (Vite)  -> VITE_API_URL dari frontend/.env.development
+// - `eikon.test` (Apache) -> "/api" diproxy ke http://127.0.0.1:5000/api
+// - production satu domain -> "/api" ikut domain aktif (tanpa domain eksternal)
+// Override manual tetap bisa lewat VITE_API_URL / VITE_MEDIA_URL.
 const resolveApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  return LOCAL_HOSTNAMES.includes(hostname) ? "/api" : PRODUCTION_API_URL;
+  return "/api";
 };
 
 export const API_BASE_URL = resolveApiBaseUrl();

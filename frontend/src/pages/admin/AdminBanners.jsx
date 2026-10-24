@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getImageUrl } from "../../utils/api";
 import { request } from "../../utils/request";
 import { api } from "../../utils/api";
@@ -35,7 +35,7 @@ export default function AdminBanners({ onActionSuccess }) {
   const fetchBanners = async () => {
     setLoading(true);
     try {
-      const res = await request.get("/banners/admin");
+      const res = await request.get(API_ENDPOINTS.BANNERS.ADMIN_LIST);
       if (res.success) {
         setBanners(res.data);
       }
@@ -115,7 +115,7 @@ export default function AdminBanners({ onActionSuccess }) {
       };
 
       if (editingBanner) {
-        const res = await request.put(`/banners/${editingBanner.id}`, payload);
+        const res = await request.put(API_ENDPOINTS.BANNERS.UPDATE(editingBanner.id), payload);
         if (res.success) {
           toast.success("Banner berhasil diperbarui.");
           setIsBannerModalOpen(false);
@@ -123,7 +123,7 @@ export default function AdminBanners({ onActionSuccess }) {
           if (onActionSuccess) onActionSuccess();
         }
       } else {
-        const res = await request.post("/banners", payload);
+        const res = await request.post(API_ENDPOINTS.BANNERS.CREATE, payload);
         if (res.success) {
           toast.success("Banner berhasil dibuat.");
           setIsBannerModalOpen(false);
@@ -144,7 +144,7 @@ export default function AdminBanners({ onActionSuccess }) {
     const toastId = toast.loading("Sedang menghapus...");
 
     try {
-      const res = await request.delete(`/banners/${itemToDelete.id}`);
+      const res = await request.delete(API_ENDPOINTS.BANNERS.DELETE(itemToDelete.id));
       if (res.success) {
         toast.success("Banner berhasil dihapus.", { id: toastId });
         setItemToDelete(null);
@@ -249,7 +249,7 @@ export default function AdminBanners({ onActionSuccess }) {
           <div className="relative transform overflow-hidden bg-white border border-stone-150 max-w-sm w-full p-6 text-left shadow-2xl transition-all">
             <h3 className="font-serif text-lg font-medium text-stone-900 uppercase tracking-wider">Konfirmasi Hapus</h3>
             <p className="mt-3 text-xs text-stone-550 leading-relaxed">
-              Apakah Anda yakin ingin menghapus banner <span className="font-semibold text-stone-900">"{itemToDelete.title}"</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus banner <span className="font-semibold text-stone-900">&quot;{itemToDelete.title}&quot;</span>? Tindakan ini bersifat permanen dan tidak dapat dibatalkan.
             </p>
             <div className="mt-6 flex justify-end space-x-3">
               <button

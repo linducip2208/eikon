@@ -19,6 +19,13 @@ export const API_ENDPOINTS = {
     UPDATE: (id) => `/categories/${id}`,
     DELETE: (id) => `/categories/${id}`,
   },
+  BANNERS: {
+    LIST: "/banners",
+    ADMIN_LIST: "/banners/admin",
+    CREATE: "/banners",
+    UPDATE: (id) => `/banners/${id}`,
+    DELETE: (id) => `/banners/${id}`,
+  },
   CONTACTS: {
     SUBMIT: "/contacts",
     LIST: "/contacts",

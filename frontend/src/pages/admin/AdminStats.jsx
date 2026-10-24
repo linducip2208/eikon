@@ -1,4 +1,3 @@
-import React from "react";
 import { Layers, TrendingUp, AlertOctagon, Mail } from "lucide-react";
 
 export default function AdminStats({ stats }) {

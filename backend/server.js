@@ -654,7 +654,7 @@ app.delete('/api/banners/:id', verifyToken, async (req, res) => {
 
 // GET /api/version (Public) - penanda build yang live di server (untuk verifikasi deploy)
 app.get('/api/version', (req, res) => {
-  res.json({ success: true, build: '2026-10-23-paypal', node: process.version });
+  res.json({ success: true, build: '2026-10-24-paypal-fix', node: process.version });
 });
 
 // GET /api/payment-methods (Public) - daftar gateway aktif untuk dipilih pelanggan di checkout.
@@ -1598,8 +1598,11 @@ const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed',
 
 // POST /api/orders (Public) - buat pesanan + sesi pembayaran (Tripay atau PayPal sesuai pilihan pelanggan)
 app.post('/api/orders', orderLimiter, async (req, res) => {
-  const requestedMethod = String((req.body && req.body.payment_method) || 'tripay').trim().toLowerCase();
-  const activeGateway = requestedMethod === 'paypal' ? 'paypal' : 'tripay';
+  const requestedMethod = String((req.body && req.body.payment_method) || '').trim().toLowerCase();
+  if (requestedMethod !== 'tripay' && requestedMethod !== 'paypal') {
+    return res.status(400).json({ success: false, message: 'Metode pembayaran tidak valid. Pilih Tripay atau PayPal.' });
+  }
+  const activeGateway = requestedMethod;
 
   if (activeGateway === 'paypal') {
     if (!(await isGatewayEnabled('paypal'))) {
@@ -2060,6 +2063,7 @@ app.get('/api/orders/reference/:referenceId', async (req, res) => {
         subtotal: order.subtotal,
         total: order.total,
         status: order.status,
+        payment_provider: order.payment_provider,
         paid_at: order.paid_at,
         created_at: order.created_at,
         // Link pembayaran hanya relevan selama pesanan belum dibayar

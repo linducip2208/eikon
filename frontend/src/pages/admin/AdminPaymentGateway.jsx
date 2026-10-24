@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
 import { API_ENDPOINTS } from "../../utils/endpoints";
 import AdminPaypal from "./AdminPaypal";
