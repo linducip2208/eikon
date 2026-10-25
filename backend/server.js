@@ -654,7 +654,7 @@ app.delete('/api/banners/:id', verifyToken, async (req, res) => {
 
 // GET /api/version (Public) - penanda build yang live di server (untuk verifikasi deploy)
 app.get('/api/version', (req, res) => {
-  res.json({ success: true, build: '2026-10-24-paypal-fix', node: process.version });
+  res.json({ success: true, build: '2026-10-25-paypal-fix2', node: process.version });
 });
 
 // GET /api/payment-methods (Public) - daftar gateway aktif untuk dipilih pelanggan di checkout.
@@ -1289,7 +1289,10 @@ function idrToUsd(amountIdr, rate) {
 }
 
 // Token akses PayPal di-cache di memori sampai kedaluwarsa.
-// Cache di-key per environment + client agar ganti mode/kredensial tidak memakai token basi.
+// Cache di-key per environment + hash kredensial: ganti mode, ganti Client ID,
+// maupun ROTASI SECRET SAJA (clientId sama) semuanya membuat token lama dibuang.
+// Tanpa hash secret, token basi hasil secret lama tetap dipakai sampai kedaluwarsa
+// dan create-order gagal 401 walau kredensial di admin sudah benar.
 let paypalTokenCache = { key: '', token: '', expiresAt: 0 };
 async function getPaypalAccessToken() {
   const { baseUrl, clientId, secret, isProduction } = await getPaypalConfig();
@@ -1298,7 +1301,9 @@ async function getPaypalAccessToken() {
     paymentError.isPaymentError = true;
     throw paymentError;
   }
-  const cacheKey = `${isProduction ? 'live' : 'sandbox'}:${clientId}`;
+  // Hash (bukan secret asli) hanya dipakai sebagai kunci cache in-memory, tidak pernah di-log.
+  const credHash = crypto.createHash('sha256').update(`${clientId}:${secret}`).digest('hex').slice(0, 16);
+  const cacheKey = `${isProduction ? 'live' : 'sandbox'}:${credHash}`;
   if (paypalTokenCache.token && paypalTokenCache.key === cacheKey && Date.now() < paypalTokenCache.expiresAt) {
     return { baseUrl, token: paypalTokenCache.token };
   }
@@ -1356,7 +1361,6 @@ async function getPaypalAccessToken() {
 // Buat order PayPal -> { paypalOrderId, approvalUrl, amountUsd }
 async function createPaypalOrder({ referenceId, amountIdr, fallbackOrigin }) {
   const { siteUrl, rate, currency } = await getPaypalConfig();
-  const { baseUrl, token } = await getPaypalAccessToken();
   const appUrl = siteUrl || fallbackOrigin || '';
   if (!appUrl) {
     const paymentError = new Error('URL Website Toko belum diatur. Isi di Admin > Payment Gateway.');
@@ -1364,37 +1368,49 @@ async function createPaypalOrder({ referenceId, amountIdr, fallbackOrigin }) {
     throw paymentError;
   }
   const amountUsd = idrToUsd(amountIdr, rate).toFixed(2);
-  let response;
-  try {
-    response = await fetch(`${baseUrl}/v2/checkout/orders`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'PayPal-Request-Id': referenceId,
+  const orderBody = JSON.stringify({
+    intent: 'CAPTURE',
+    purchase_units: [
+      {
+        reference_id: referenceId,
+        amount: { currency_code: currency, value: amountUsd },
       },
-      body: JSON.stringify({
-        intent: 'CAPTURE',
-        purchase_units: [
-          {
-            reference_id: referenceId,
-            amount: { currency_code: currency, value: amountUsd },
-          },
-        ],
-        application_context: {
-          return_url: `${appUrl}/order/${referenceId}?paypal=return`,
-          cancel_url: `${appUrl}/order/${referenceId}?payment=cancelled`,
-          brand_name: 'Eliteikon',
-          user_action: 'PAY_NOW',
+    ],
+    application_context: {
+      return_url: `${appUrl}/order/${referenceId}?paypal=return`,
+      cancel_url: `${appUrl}/order/${referenceId}?payment=cancelled`,
+      brand_name: 'Eliteikon',
+      user_action: 'PAY_NOW',
+    },
+  });
+  async function postOrder(baseUrl, bearer) {
+    try {
+      return await fetch(`${baseUrl}/v2/checkout/orders`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${bearer}`,
+          'Content-Type': 'application/json',
+          'PayPal-Request-Id': referenceId,
         },
-      }),
-      signal: AbortSignal.timeout(60000),
-    });
-  } catch (networkError) {
-    console.error('PayPal create order fetch error:', networkError.name, networkError.message);
-    const paymentError = new Error('Tidak dapat menghubungi PayPal. Periksa koneksi internet server.');
-    paymentError.isPaymentError = true;
-    throw paymentError;
+        body: orderBody,
+        signal: AbortSignal.timeout(60000),
+      });
+    } catch (networkError) {
+      console.error('PayPal create order fetch error:', networkError.name, networkError.message);
+      const paymentError = new Error('Tidak dapat menghubungi PayPal. Periksa koneksi internet server.');
+      paymentError.isPaymentError = true;
+      throw paymentError;
+    }
+  }
+  const { baseUrl } = await getPaypalConfig();
+  const { token: firstToken } = await getPaypalAccessToken();
+  let response = await postOrder(baseUrl, firstToken);
+  // Token basi/dicabut -> PayPal balas 401: buang cache, ambil token baru, coba sekali lagi.
+  if (response.status === 401) {
+    console.error('PayPal create order 401: token basi, refresh & retry sekali:', JSON.stringify({ referenceId, amountUsd }));
+    paypalTokenCache = { key: '', token: '', expiresAt: 0 };
+    const refreshed = await getPaypalAccessToken();
+    response = await postOrder(refreshed.baseUrl, refreshed.token);
   }
   const result = await response.json().catch(() => null);
   const approvalUrl = result && Array.isArray(result.links)
@@ -1405,6 +1421,17 @@ async function createPaypalOrder({ referenceId, amountIdr, fallbackOrigin }) {
     JSON.stringify({ httpStatus: response.status, paypalOrderId: result && result.id, amountUsd, currency, referenceId })
   );
   if (!response.ok || !result || !result.id || !approvalUrl) {
+    // Log body error PayPal (name/message/details) agar penyebab 4xx terlihat di Admin > Log.
+    console.error(
+      'PayPal create order error body:',
+      JSON.stringify({
+        httpStatus: response.status,
+        name: result && result.name,
+        message: result && result.message,
+        details: result && result.details,
+        referenceId,
+      })
+    );
     const detail = result && result.details && result.details[0];
     const paymentError = new Error(
       `PayPal: ${(detail && (detail.description || detail.issue)) || (result && result.message) || 'gagal membuat sesi pembayaran'}`
