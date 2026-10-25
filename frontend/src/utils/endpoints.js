@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
   PAYMENT: {
     METHODS: "/payment-methods",
     PAYPAL_CAPTURE: "/paypal/capture",
+    PAYPAL_TEST: "/paypal/test-connection",
   },
   UPLOAD: "/upload",
   UPLOAD_MULTIPLE: "/upload-multiple",

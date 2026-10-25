@@ -776,6 +776,10 @@ app.put('/api/settings', verifyToken, async (req, res) => {
     }
     await connection.commit();
     connection.release();
+    // Kredensial/mode PayPal berubah -> buang token cache agar otentikasi berikutnya langsung pakai nilai baru
+    if (Object.keys(settingsObj).some((k) => k === 'paypal_env' || k === 'paypal_client_id' || k === 'paypal_secret')) {
+      paypalTokenCache = { key: '', token: '', expiresAt: 0 };
+    }
     res.json({ success: true, message: 'Pengaturan berhasil diperbarui' });
   } catch (error) {
     await connection.rollback();
@@ -1284,18 +1288,22 @@ function idrToUsd(amountIdr, rate) {
   return Math.ceil((Number(amountIdr) / rate) * 100) / 100;
 }
 
-// Token akses PayPal di-cache di memori sampai kedaluwarsa
-let paypalTokenCache = { token: '', expiresAt: 0 };
+// Token akses PayPal di-cache di memori sampai kedaluwarsa.
+// Cache di-key per environment + client agar ganti mode/kredensial tidak memakai token basi.
+let paypalTokenCache = { key: '', token: '', expiresAt: 0 };
 async function getPaypalAccessToken() {
-  const { baseUrl, clientId, secret } = await getPaypalConfig();
+  const { baseUrl, clientId, secret, isProduction } = await getPaypalConfig();
   if (!clientId || !secret) {
     const paymentError = new Error('PayPal belum dikonfigurasi. Lengkapi di Admin > Payment Gateway.');
     paymentError.isPaymentError = true;
     throw paymentError;
   }
-  if (paypalTokenCache.token && Date.now() < paypalTokenCache.expiresAt) {
+  const cacheKey = `${isProduction ? 'live' : 'sandbox'}:${clientId}`;
+  if (paypalTokenCache.token && paypalTokenCache.key === cacheKey && Date.now() < paypalTokenCache.expiresAt) {
     return { baseUrl, token: paypalTokenCache.token };
   }
+  // Kredensial salah mode (cth. kredensial Production dipakai di Sandbox) adalah penyebab
+  // umum `invalid_client`. Jangan cache hasil gagal agar retry setelah koreksi langsung dicoba.
   const credentials = Buffer.from(`${clientId}:${secret}`).toString('base64');
   let response;
   try {
@@ -1316,12 +1324,29 @@ async function getPaypalAccessToken() {
   }
   const result = await response.json().catch(() => null);
   if (!response.ok || !result || !result.access_token) {
-    console.error('PayPal token error:', JSON.stringify({ httpStatus: response.status, error: result && result.error }));
-    const paymentError = new Error('Gagal otentikasi ke PayPal. Periksa Client ID & Secret.');
+    // Log diagnostik tanpa membocorkan secret: prefix + panjang cukup untuk deteksi
+    // salah-copy / salah-mode (sandbox vs production). Lihat di Admin > Log.
+    console.error('PayPal token error:', JSON.stringify({
+      httpStatus: response.status,
+      error: result && (result.error || result.name),
+      description: result && (result.error_description || result.message),
+      env: isProduction ? 'production' : 'sandbox',
+      baseUrl,
+      clientIdPrefix: String(clientId).slice(0, 8),
+      clientIdLen: String(clientId).length,
+      secretLen: String(secret).length,
+    }));
+    paypalTokenCache = { key: '', token: '', expiresAt: 0 };
+    let hint = 'Gagal otentikasi ke PayPal. Periksa Client ID & Secret.';
+    if (response.status === 401 || (result && result.error === 'invalid_client')) {
+      hint += ` Pastikan pasangan dari mode ${isProduction ? 'Production (Live)' : 'Sandbox'} di developer.paypal.com dipakai bersama mode yang sama di admin (jangan campur Sandbox <-> Production), tanpa spasi tambahan.`;
+    }
+    const paymentError = new Error(hint);
     paymentError.isPaymentError = true;
     throw paymentError;
   }
   paypalTokenCache = {
+    key: cacheKey,
     token: result.access_token,
     expiresAt: Date.now() + (Math.max(Number(result.expires_in) || 3600, 60) - 60) * 1000,
   };
@@ -1879,6 +1904,22 @@ app.post('/api/tripay/callback', callbackLimiter, async (req, res) => {
   } catch (error) {
     console.error('Tripay callback error:', error);
     res.status(500).json({ success: false, message: 'Gagal memproses callback' });
+  }
+});
+
+// POST /api/paypal/test-connection (Admin) - verifikasi Client ID & Secret tanpa membuat order.
+// Mengembalikan env/baseUrl yang dipakai agar salah-mode (sandbox vs production) langsung terlihat.
+app.post('/api/paypal/test-connection', verifyToken, async (req, res) => {
+  try {
+    const cfg = await getPaypalConfig();
+    await getPaypalAccessToken();
+    res.json({
+      success: true,
+      message: `Koneksi PayPal ${cfg.isProduction ? 'Production' : 'Sandbox'} berhasil.`,
+      data: { env: cfg.isProduction ? 'production' : 'sandbox', baseUrl: cfg.baseUrl },
+    });
+  } catch (error) {
+    res.status(502).json({ success: false, message: error.isPaymentError ? error.message : 'Gagal menguji koneksi PayPal.' });
   }
 });
 

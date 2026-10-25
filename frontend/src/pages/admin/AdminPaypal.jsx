@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
+import { api } from "../../utils/api";
 import { API_ENDPOINTS } from "../../utils/endpoints";
 import {
   Loader2,
@@ -9,6 +10,7 @@ import {
   EyeOff,
   ShieldCheck,
   ShieldAlert,
+  PlugZap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -53,6 +55,7 @@ export default function AdminPaypal() {
   const [paypalRate, setPaypalRate] = useState("16000");
 
   const [showSecret, setShowSecret] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -129,6 +132,26 @@ export default function AdminPaypal() {
       toast.error("Gagal menyimpan pengaturan PayPal.", { id: toastId });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTesting(true);
+    const toastId = toast.loading("Menguji koneksi ke PayPal...");
+    try {
+      // Pakai `api` langsung agar tidak double-toast (request.* selalu toast error sendiri)
+      const { data } = await api.post(API_ENDPOINTS.PAYMENT.PAYPAL_TEST, {});
+      if (data && data.success) {
+        toast.success(data.message || "Koneksi PayPal berhasil.", { id: toastId });
+      } else {
+        toast.error((data && data.message) || "Koneksi PayPal gagal.", { id: toastId });
+      }
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message || error?.message || "Koneksi PayPal gagal. Cek Admin > Log untuk detail env.";
+      toast.error(msg, { id: toastId, duration: 6000 });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -305,6 +328,21 @@ export default function AdminPaypal() {
               <Save className="h-4 w-4" />
             )}
             <span>{saving ? "Menyimpan..." : "Simpan PayPal"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTestConnection}
+            disabled={testing || saving || !isConfigured}
+            title={!isConfigured ? "Lengkapi dan simpan Client ID & Secret dulu" : "Uji otentikasi ke PayPal"}
+            className="w-full flex items-center justify-center space-x-2 border border-stone-300 px-6 py-3 text-xs font-semibold uppercase tracking-widest text-stone-700 hover:bg-stone-50 disabled:opacity-50 transition-all duration-200"
+          >
+            {testing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PlugZap className="h-4 w-4" />
+            )}
+            <span>{testing ? "Menguji..." : "Test Koneksi PayPal"}</span>
           </button>
         </form>
       )}
